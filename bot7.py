@@ -19,7 +19,7 @@ OWNER_USERNAME = "@ESCROW2929"
 
 # Security: Hardcoded Owner/Admin IDs (Only authorized people can manage keys/admins)
 # Apni Telegram numeric User ID yahan daalein taaki sirf aap access kar sakein
-AUTHORIZED_ADMINS = {123456789}  # Apna ID yahan add karein
+AUTHORIZED_ADMINS = {ESCROW2929}  # Apna ID yahan add karein
 
 BANNED_USERS = set()
 ACTIVE_KEYS = {}  # Format: {key_string: {"quantity": qty, "time": time}}
