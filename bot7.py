@@ -183,7 +183,9 @@ async def generate_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
         generated_keys_list.append(key_str)
     
     save_data()
-    keys_text = "\n".join([f"{k}" for k in generated_keys_list])
+    
+    # Har key ko code block (backticks) me wrap kar diya hai taaki easily copy ho sake
+    keys_text = "\n".join([f"`{k}`" for k in generated_keys_list])
     response_msg = (
         f"🔑 {qty} Keys Generated Successfully!\n"
         f"⏱ Duration: {time_str}\n\n"
@@ -191,9 +193,9 @@ async def generate_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     if len(response_msg) > 4000:
-        await update.message.reply_text(f"🔑 {qty} Keys generated successfully! (List is too long to display at once).")
+        await update.message.reply_text(f"🔑 {qty} Keys generated successfully! (List is too long to display at once).", parse_mode="Markdown")
     else:
-        await update.message.reply_text(response_msg)
+        await update.message.reply_text(response_msg, parse_mode="Markdown")
 
 async def redeem_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -202,6 +204,7 @@ async def redeem_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
         
     ALL_USERS.add(user_id)
+    save_data()
     if not context.args:
         await update.message.reply_text("❌ Usage: /redeem PRIME-XXXXXXXX")
         return
@@ -458,9 +461,9 @@ def main():
     
     app.add_handler(MessageHandler(filters.Document.ALL, chf_document))
 
-    print("Bot is up and running with JSON persistent memory and proxy integration...")
+    print("Bot is up and running with monospace formatted keys...")
     app.run_polling()
 
 if __name__ == "__main__":
     main()
-    
+                
