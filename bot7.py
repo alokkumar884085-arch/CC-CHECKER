@@ -17,15 +17,19 @@ TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
 OWNER_USERNAME = "@ESCROW2929"
 
-# Security: Hardcoded Owner/Admin IDs (Only authorized people can manage keys/admins)
-# Apni Telegram numeric User ID yahan daalein taaki sirf aap access kar sakein
-AUTHORIZED_ADMINS = {ESCROW2929}  # Apna ID yahan add karein
+# Owner & Admin Management (Aapki ID yahan permanent owner/admin hai)
+AUTHORIZED_ADMINS = {8785590284}  # Primary Owner ID
+SUB_ADMINS = set()  # Less privileged admins (can only generate keys)
 
 BANNED_USERS = set()
 ACTIVE_KEYS = {}  # Format: {key_string: {"quantity": qty, "time": time}}
+USER_SUBSCRIPTIONS = {}  # Format: {user_id: expiry_timestamp or status}
 
-def is_authorized(user_id):
+def is_main_admin(user_id):
     return user_id in AUTHORIZED_ADMINS
+
+def is_any_admin(user_id):
+    return user_id in AUTHORIZED_ADMINS or user_id in SUB_ADMINS
 
 # /start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -38,15 +42,16 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_message = (
         f"Hello {user.first_name}!\n\n"
         f"🤖 **CC Checker & Gateway Bot is Online**\n"
-        f"Use /chk, /chks, or /chf to check cards.\n\n"
+        f"⚠️ *Note: Card checking requires an active premium key subscription.*\n"
+        f"Use /chk, /chks, or /chf after getting access.\n\n"
         f"👑 **Owner:** {OWNER_USERNAME}"
     )
     await update.message.reply_text(welcome_message, parse_mode="Markdown")
 
-# /adminpannel command (Restricted)
+# /adminpannel command
 async def admin_pannel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    if not is_authorized(user_id):
+    if not is_any_admin(user_id):
         await update.message.reply_text("❌ You are not authorized to use the Admin Panel.")
         return
         
@@ -54,20 +59,23 @@ async def admin_pannel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🛠 **Admin Panel & Controls**\n\n"
         f"• Stripe Integration: Connected (Test Mode)\n"
         f"• Active Keys Generated: {len(ACTIVE_KEYS)}\n"
-        f"• Banned Users: {len(Banned_Users if 'Banned_Users' in globals() else BANNED_USERS)}\n\n"
-        f"**Available Admin Commands:**\n"
+        f"• Banned Users: {len(BANNED_USERS)}\n\n"
+        f"**Available Commands:**\n"
         f"/key <quantity> <time> (e.g., /key 5 1d)\n"
-        f"/makeadmin <id>\n"
-        f"/removeadmin <id>\n"
-        f"/ban <id>\n"
-        f"/unban <id>"
     )
+    if is_main_admin(user_id):
+        panel_message += (
+            f"/makeadmin <id>\n"
+            f"/removeadmin <id>\n"
+            f"/ban <id>\n"
+            f"/unban <id>"
+        )
     await update.message.reply_text(panel_message, parse_mode="Markdown")
 
-# /key command: /key (quantity) (time)
+# /key command: /key (quantity) (time) - Accessible by admins too
 async def generate_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    if not is_authorized(user_id):
+    if not is_any_admin(user_id):
         await update.message.reply_text("❌ You are not authorized to generate keys.")
         return
         
@@ -90,11 +98,11 @@ async def generate_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown"
     )
 
-# /makeadmin command (Restricted: Cannot add via bot commands unless pre-set or restricted to owner)
+# /makeadmin command (Strictly Main Owner Only)
 async def make_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    if not is_authorized(user_id):
-        await update.message.reply_text("❌ Only primary owners can assign admins.")
+    if not is_main_admin(user_id):
+        await update.message.reply_text("❌ Only the primary owner can assign sub-admins.")
         return
         
     if not context.args:
@@ -102,16 +110,16 @@ async def make_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     try:
         new_admin = int(context.args[0])
-        AUTHORIZED_ADMINS.add(new_admin)
-        await update.message.reply_text(f"✅ User `{new_admin}` has been authorized.", parse_mode="Markdown")
+        SUB_ADMINS.add(new_admin)
+        await update.message.reply_text(f"✅ User `{new_admin}` added as Sub-Admin (Key Generation access only).", parse_mode="Markdown")
     except ValueError:
         await update.message.reply_text("❌ Invalid User ID format.")
 
-# /removeadmin command
+# /removeadmin command (Strictly Main Owner Only)
 async def remove_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    if not is_authorized(user_id):
-        await update.message.reply_text("❌ Only primary owners can remove admins.")
+    if not is_main_admin(user_id):
+        await update.message.reply_text("❌ Only the primary owner can remove sub-admins.")
         return
         
     if not context.args:
@@ -119,18 +127,18 @@ async def remove_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     try:
         target = int(context.args[0])
-        if target in AUTHORIZED_ADMINS:
-            AUTHORIZED_ADMINS.remove(target)
-            await update.message.reply_text(f"✅ User `{target}` removed from admins.", parse_mode="Markdown")
+        if target in SUB_ADMINS:
+            SUB_ADMINS.remove(target)
+            await update.message.reply_text(f"✅ User `{target}` removed from sub-admins.", parse_mode="Markdown")
         else:
-            await update.message.reply_text("❌ User not found in admin list.")
+            await update.message.reply_text("❌ User not found in sub-admin list.")
     except ValueError:
         await update.message.reply_text("❌ Invalid User ID format.")
 
 # /ban command
 async def ban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    if not is_authorized(user_id):
+    if not is_main_admin(user_id):
         await update.message.reply_text("❌ Unauthorized.")
         return
     if not context.args:
@@ -146,7 +154,7 @@ async def ban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # /unban command
 async def unban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    if not is_authorized(user_id):
+    if not is_main_admin(user_id):
         await update.message.reply_text("❌ Unauthorized.")
         return
     if not context.args:
@@ -161,6 +169,12 @@ async def unban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("❌ User is not banned.")
     except ValueError:
         await update.message.reply_text("❌ Invalid User ID.")
+
+# Subscription Check helper (Admins & Owners bypass, regular users need subscription)
+def has_access(user_id):
+    if is_any_admin(user_id):
+        return True
+    return user_id in USER_SUBSCRIPTIONS
 
 # Core Stripe Card Checker Logic
 def process_card_string(card_line):
@@ -202,6 +216,10 @@ async def chk_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id in BANNED_USERS:
         return
+    if not has_access(user_id):
+        await update.message.reply_text("❌ You need an active subscription key to check cards. Contact owner.")
+        return
+        
     if not context.args:
         await update.message.reply_text("❌ Usage: `/chk CC|MM|YY|CVV`", parse_mode="Markdown")
         return
@@ -214,8 +232,11 @@ async def chks_cards(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id in BANNED_USERS:
         return
+    if not has_access(user_id):
+        await update.message.reply_text("❌ You need an active subscription key to check cards. Contact owner.")
+        return
+        
     text = update.message.text
-    # Remove command prefix (/chks)
     lines = text.split('\n')[1:] if '\n' in text else []
     if not lines:
         await update.message.reply_text("❌ Send cards line-by-line below `/chks`", parse_mode="Markdown")
@@ -223,7 +244,7 @@ async def chks_cards(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     results = [process_card_string(line.strip()) for line in lines if "|" in line]
     if results:
-        await update.message.reply_text("\n".join(results[:15]), parse_mode="Markdown")  # Limit output length
+        await update.message.reply_text("\n".join(results[:15]), parse_mode="Markdown")
     else:
         await update.message.reply_text("❌ No valid cards found.")
 
@@ -232,6 +253,10 @@ async def chf_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id in BANNED_USERS:
         return
+    if not has_access(user_id):
+        await update.message.reply_text("❌ You need an active subscription key to check cards. Contact owner.")
+        return
+        
     document = update.message.document
     if not document:
         await update.message.reply_text("❌ Please upload a text file containing cards using `/chf` caption.", parse_mode="Markdown")
@@ -264,10 +289,9 @@ def main():
     app.add_handler(CommandHandler("chks", chks_cards))
     app.add_handler(CommandHandler("chf", chf_document))
     
-    # Document handler for /chf file uploads
     app.add_handler(MessageHandler(filters.Document.ALL, chf_document))
 
-    print("Bot is up and running with all requested features & security layers...")
+    print("Bot is up and running securely...")
     app.run_polling()
 
 if __name__ == "__main__":
