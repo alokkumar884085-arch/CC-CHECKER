@@ -2,6 +2,7 @@ import os
 import logging
 import uuid
 import time
+import json
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
 import requests
@@ -22,10 +23,39 @@ OWNER_USERNAME = "@ESCROW2929"
 AUTHORIZED_ADMINS = {8785590284}  # Primary Owner ID
 SUB_ADMINS = set()
 
-BANNED_USERS = set()
-ACTIVE_KEYS = {} 
-USER_SUBSCRIPTIONS = {}
-ALL_USERS = set()
+# JSON Database File to persist memory
+DATA_FILE = "users_data.json"
+
+def load_data():
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, "r") as f:
+                data = json.load(f)
+                return (
+                    set(data.get("all_users", [])),
+                    set(data.get("banned_users", [])),
+                    data.get("active_keys", {}),
+                    {int(k): v for k, v in data.get("user_subscriptions", {}).items()}
+                )
+        except Exception as e:
+            logger.error(f"Error loading data: {e}")
+    return set(), set(), {}, {}
+
+def save_data():
+    data = {
+        "all_users": list(ALL_USERS),
+        "banned_users": list(BANNED_USERS),
+        "active_keys": ACTIVE_KEYS,
+        "user_subscriptions": USER_SUBSCRIPTIONS
+    }
+    try:
+        with open(DATA_FILE, "w") as f:
+            json.dump(data, f)
+    except Exception as e:
+        logger.error(f"Error saving data: {e}")
+
+# Load data into memory at startup
+ALL_USERS, BANNED_USERS, ACTIVE_KEYS, USER_SUBSCRIPTIONS = load_data()
 
 def is_main_admin(user_id):
     return user_id in AUTHORIZED_ADMINS
@@ -56,6 +86,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
         
     ALL_USERS.add(user_id)
+    save_data()
+    
     user = update.effective_user
     welcome_message = (
         f"Hello {user.first_name}!\n\n"
@@ -150,6 +182,7 @@ async def generate_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
         }
         generated_keys_list.append(key_str)
     
+    save_data()
     keys_text = "\n".join([f"{k}" for k in generated_keys_list])
     response_msg = (
         f"🔑 {qty} Keys Generated Successfully!\n"
@@ -191,6 +224,8 @@ async def redeem_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     key_data["used_by"] = user_id
     key_data["expiry_time"] = expiry_timestamp
     USER_SUBSCRIPTIONS[user_id] = expiry_timestamp
+    
+    save_data()
     
     await update.message.reply_text(
         "✅ Key Successfully Redeemed!\n"
@@ -241,6 +276,7 @@ async def ban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         target = int(context.args[0])
         BANNED_USERS.add(target)
+        save_data()
         await update.message.reply_text(f"🚫 User {target} banned.")
     except ValueError:
         await update.message.reply_text("❌ Invalid ID.")
@@ -257,6 +293,7 @@ async def unban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
         target = int(context.args[0])
         if target in BANNED_USERS:
             BANNED_USERS.remove(target)
+            save_data()
             await update.message.reply_text(f"✅ User {target} unbanned.")
         else:
             await update.message.reply_text("❌ User not banned.")
@@ -272,6 +309,7 @@ def has_access(user_id):
             return True
         else:
             del USER_SUBSCRIPTIONS[user_id]
+            save_data()
             return False
     return False
 
@@ -289,7 +327,13 @@ def process_card_string(card_line):
         
         api_url = f"https://web-production-c2d03.up.railway.app/shopify?site={quote(site_url)}&cc={quote(formatted_cc)}&proxy={quote(proxy_val)}"
         
-        response = requests.get(api_url, timeout=60)
+        # Proxy configuration setup for requests
+        proxies = {
+            "http": f"http://{proxy_val}",
+            "https": f"http://{proxy_val}"
+        }
+        
+        response = requests.get(api_url, proxies=proxies, timeout=60)
         res_data = response.json()
         
         resp_status = res_data.get("Response", "UNKNOWN")
@@ -328,6 +372,8 @@ async def chk_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id in BANNED_USERS:
         return
     ALL_USERS.add(user_id)
+    save_data()
+    
     if not has_access(user_id):
         await update.message.reply_text("❌ Your subscription has expired or you haven't redeemed a key yet. Use /redeem <key>.")
         return
@@ -346,6 +392,8 @@ async def chks_cards(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id in BANNED_USERS:
         return
     ALL_USERS.add(user_id)
+    save_data()
+    
     if not has_access(user_id):
         await update.message.reply_text("❌ Your subscription has expired or you haven't redeemed a key yet. Use /redeem <key>.")
         return
@@ -368,6 +416,8 @@ async def chf_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id in BANNED_USERS:
         return
     ALL_USERS.add(user_id)
+    save_data()
+    
     if not has_access(user_id):
         await update.message.reply_text("❌ Your subscription has expired or you haven't redeemed a key yet. Use /redeem <key>.")
         return
@@ -408,9 +458,9 @@ def main():
     
     app.add_handler(MessageHandler(filters.Document.ALL, chf_document))
 
-    print("Bot is up and running safely without markdown formatting errors...")
+    print("Bot is up and running with JSON persistent memory and proxy integration...")
     app.run_polling()
 
 if __name__ == "__main__":
     main()
-                        
+    
