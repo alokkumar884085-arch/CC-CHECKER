@@ -1,5 +1,7 @@
 import os
 import logging
+import uuid
+import time
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
 import requests
@@ -17,19 +19,38 @@ TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
 OWNER_USERNAME = "@ESCROW2929"
 
-# Owner & Admin Management (Aapki ID yahan permanent owner/admin hai)
+# Owner & Admin Management
 AUTHORIZED_ADMINS = {8785590284}  # Primary Owner ID
-SUB_ADMINS = set()  # Less privileged admins (can only generate keys)
+SUB_ADMINS = set()
 
 BANNED_USERS = set()
-ACTIVE_KEYS = {}  # Format: {key_string: {"quantity": qty, "time": time}}
-USER_SUBSCRIPTIONS = {}  # Format: {user_id: expiry_timestamp or status}
+# Database for keys: {key_string: {"duration_seconds": int, "used_by": user_id or None, "expiry_time": timestamp or None}}
+ACTIVE_KEYS = {} 
+# Database for subscriptions: {user_id: expiry_timestamp}
+USER_SUBSCRIPTIONS = {}
 
 def is_main_admin(user_id):
     return user_id in AUTHORIZED_ADMINS
 
 def is_any_admin(user_id):
     return user_id in AUTHORIZED_ADMINS or user_id in SUB_ADMINS
+
+# Parse time string like '1d', '1hour', '30m' into seconds
+def parse_time_to_seconds(time_str):
+    time_str = time_str.lower().strip()
+    try:
+        if 'd' in time_str:
+            days = int(time_str.replace('d', ''))
+            return days * 86400
+        elif 'hour' in time_str or 'h' in time_str:
+            hours = int(time_str.replace('hour', '').replace('h', '').strip())
+            return hours * 3600
+        elif 'm' in time_str:
+            mins = int(time_str.replace('m', '').strip())
+            return mins * 60
+    except ValueError:
+        pass
+    return 86400  # Default 1 day if parsing fails
 
 # /start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -42,8 +63,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_message = (
         f"Hello {user.first_name}!\n\n"
         f"🤖 **CC Checker & Gateway Bot is Online**\n"
-        f"⚠️ *Note: Card checking requires an active premium key subscription.*\n"
-        f"Use /chk, /chks, or /chf after getting access.\n\n"
+        f"⚠️ *Note: Use `/redeem <key>` to activate your access before checking cards.*\n\n"
         f"👑 **Owner:** {OWNER_USERNAME}"
     )
     await update.message.reply_text(welcome_message, parse_mode="Markdown")
@@ -58,10 +78,10 @@ async def admin_pannel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     panel_message = (
         f"🛠 **Admin Panel & Controls**\n\n"
         f"• Stripe Integration: Connected (Test Mode)\n"
-        f"• Active Keys Generated: {len(ACTIVE_KEYS)}\n"
+        f"• Total Keys in System: {len(ACTIVE_KEYS)}\n"
         f"• Banned Users: {len(BANNED_USERS)}\n\n"
         f"**Available Commands:**\n"
-        f"/key <quantity> <time> (e.g., /key 5 1d)\n"
+        f"/key <quantity> <time> (e.g., `/key 25 1d` or `/key 10 1hour`)\n"
     )
     if is_main_admin(user_id):
         panel_message += (
@@ -72,7 +92,7 @@ async def admin_pannel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     await update.message.reply_text(panel_message, parse_mode="Markdown")
 
-# /key command: /key (quantity) (time) - Accessible by admins too
+# /key command: Generates multiple keys starting with PRIME
 async def generate_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not is_any_admin(user_id):
@@ -80,48 +100,103 @@ async def generate_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
         
     if len(context.args) < 2:
-        await update.message.reply_text("❌ Usage: `/key <quantity> <time>` (Example: `/key 10 1d`)", parse_mode="Markdown")
+        await update.message.reply_text("❌ Usage: `/key <quantity> <time>`\nExample: `/key 25 1d` or `/key 5 1hour`", parse_mode="Markdown")
         return
         
-    qty = context.args[0]
-    time_limit = context.args[1]
+    try:
+        qty = int(context.args[0])
+    except ValueError:
+        await update.message.reply_text("❌ Quantity must be a number.")
+        return
+
+    time_str = context.args[1]
+    duration_secs = parse_time_to_seconds(time_str)
     
-    import uuid
-    generated_key = f"KEY-{uuid.uuid4().hex[:8].upper()}"
-    ACTIVE_KEYS[generated_key] = {"quantity": qty, "time": time_limit}
+    generated_keys_list = []
+    for _ in range(qty):
+        unique_suffix = uuid.uuid4().hex[:8].upper()
+        key_str = f"PRIME-{unique_suffix}"
+        ACTIVE_KEYS[key_str] = {
+            "duration_seconds": duration_secs,
+            "used_by": None,
+            "expiry_time": None
+        }
+        generated_keys_list.append(key_str)
+    
+    # Telegram message ki length limit hoti hai, isliye agar quantity zyada ho toh chunks me bhejenge ya format karke
+    keys_text = "\n".join([f"`{k}`" for k in generated_keys_list])
+    
+    response_msg = (
+        f"🔑 **{qty} Keys Generated Successfully!**\n"
+        f"⏱ **Duration:** {time_str}\n\n"
+        f"{keys_text}"
+    )
+    
+    # Agar message lamba ho toh split karke bhej sakte hain, yahan direct bhej rahe hain
+    if len(response_msg) > 4000:
+        await update.message.reply_text(f"🔑 {qty} Keys generated successfully! (List is too long, saving to system).")
+    else:
+        await update.message.reply_text(response_msg, parse_mode="Markdown")
+
+# /redeem <key> command for users to claim keys
+async def redeem_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id in BANNED_USERS:
+        await update.message.reply_text("❌ You are banned.")
+        return
+        
+    if not context.args:
+        await update.message.reply_text("❌ Usage: `/redeem PRIME-XXXXXXXX`", parse_mode="Markdown")
+        return
+        
+    user_key = context.args[0].strip().upper()
+    
+    if user_key not in ACTIVE_KEYS:
+        await update.message.reply_text("❌ Invalid Key! Please check and try again.")
+        return
+        
+    key_data = ACTIVE_KEYS[user_key]
+    
+    # Check if already used
+    if key_data["used_by"] is not None:
+        await update.message.reply_text("❌ This key has already been used by someone else!")
+        return
+        
+    # Mark as used and set expiry based on current time + duration
+    current_time = time.time()
+    expiry_timestamp = current_time + key_data["duration_seconds"]
+    
+    key_data["used_by"] = user_id
+    key_data["expiry_time"] = expiry_timestamp
+    USER_SUBSCRIPTIONS[user_id] = expiry_timestamp
     
     await update.message.reply_text(
-        f"🔑 **Key Generated Successfully!**\n\n"
-        f"• Key: `{generated_key}`\n"
-        f"• Quantity: {qty}\n"
-        f"• Time Limit: {time_limit}",
+        f"✅ **Key Successfully Redeemed!**\n"
+        f"🎉 Your premium access is now active.",
         parse_mode="Markdown"
     )
 
-# /makeadmin command (Strictly Main Owner Only)
+# Admin management commands
 async def make_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not is_main_admin(user_id):
-        await update.message.reply_text("❌ Only the primary owner can assign sub-admins.")
+        await update.message.reply_text("❌ Only primary owner can do this.")
         return
-        
     if not context.args:
         await update.message.reply_text("❌ Usage: `/makeadmin <user_id>`", parse_mode="Markdown")
         return
     try:
         new_admin = int(context.args[0])
         SUB_ADMINS.add(new_admin)
-        await update.message.reply_text(f"✅ User `{new_admin}` added as Sub-Admin (Key Generation access only).", parse_mode="Markdown")
+        await update.message.reply_text(f"✅ User `{new_admin}` added as Sub-Admin (Key generation only).", parse_mode="Markdown")
     except ValueError:
-        await update.message.reply_text("❌ Invalid User ID format.")
+        await update.message.reply_text("❌ Invalid ID.")
 
-# /removeadmin command (Strictly Main Owner Only)
 async def remove_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not is_main_admin(user_id):
-        await update.message.reply_text("❌ Only the primary owner can remove sub-admins.")
+        await update.message.reply_text("❌ Only primary owner can do this.")
         return
-        
     if not context.args:
         await update.message.reply_text("❌ Usage: `/removeadmin <user_id>`", parse_mode="Markdown")
         return
@@ -129,13 +204,12 @@ async def remove_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
         target = int(context.args[0])
         if target in SUB_ADMINS:
             SUB_ADMINS.remove(target)
-            await update.message.reply_text(f"✅ User `{target}` removed from sub-admins.", parse_mode="Markdown")
+            await update.message.reply_text(f"✅ User `{target}` removed.", parse_mode="Markdown")
         else:
-            await update.message.reply_text("❌ User not found in sub-admin list.")
+            await update.message.reply_text("❌ Not found in sub-admins.")
     except ValueError:
-        await update.message.reply_text("❌ Invalid User ID format.")
+        await update.message.reply_text("❌ Invalid ID.")
 
-# /ban command
 async def ban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not is_main_admin(user_id):
@@ -147,11 +221,10 @@ async def ban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         target = int(context.args[0])
         BANNED_USERS.add(target)
-        await update.message.reply_text(f"🚫 User `{target}` has been banned.", parse_mode="Markdown")
+        await update.message.reply_text(f"🚫 User `{target}` banned.", parse_mode="Markdown")
     except ValueError:
-        await update.message.reply_text("❌ Invalid User ID.")
+        await update.message.reply_text("❌ Invalid ID.")
 
-# /unban command
 async def unban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not is_main_admin(user_id):
@@ -166,15 +239,23 @@ async def unban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
             BANNED_USERS.remove(target)
             await update.message.reply_text(f"✅ User `{target}` unbanned.", parse_mode="Markdown")
         else:
-            await update.message.reply_text("❌ User is not banned.")
+            await update.message.reply_text("❌ User not banned.")
     except ValueError:
-        await update.message.reply_text("❌ Invalid User ID.")
+        await update.message.reply_text("❌ Invalid ID.")
 
-# Subscription Check helper (Admins & Owners bypass, regular users need subscription)
+# Check if user has active valid subscription
 def has_access(user_id):
     if is_any_admin(user_id):
         return True
-    return user_id in USER_SUBSCRIPTIONS
+    if user_id in USER_SUBSCRIPTIONS:
+        expiry = USER_SUBSCRIPTIONS[user_id]
+        if time.time() < expiry:
+            return True
+        else:
+            # Expired
+            del USER_SUBSCRIPTIONS[user_id]
+            return False
+    return False
 
 # Core Stripe Card Checker Logic
 def process_card_string(card_line):
@@ -217,7 +298,7 @@ async def chk_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id in BANNED_USERS:
         return
     if not has_access(user_id):
-        await update.message.reply_text("❌ You need an active subscription key to check cards. Contact owner.")
+        await update.message.reply_text("❌ Your subscription has expired or you haven't redeemed a key yet. Use `/redeem <key>`.")
         return
         
     if not context.args:
@@ -233,7 +314,7 @@ async def chks_cards(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id in BANNED_USERS:
         return
     if not has_access(user_id):
-        await update.message.reply_text("❌ You need an active subscription key to check cards. Contact owner.")
+        await update.message.reply_text("❌ Your subscription has expired or you haven't redeemed a key yet. Use `/redeem <key>`.")
         return
         
     text = update.message.text
@@ -254,7 +335,7 @@ async def chf_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id in BANNED_USERS:
         return
     if not has_access(user_id):
-        await update.message.reply_text("❌ You need an active subscription key to check cards. Contact owner.")
+        await update.message.reply_text("❌ Your subscription has expired or you haven't redeemed a key yet. Use `/redeem <key>`.")
         return
         
     document = update.message.document
@@ -281,6 +362,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("adminpannel", admin_pannel))
     app.add_handler(CommandHandler("key", generate_key))
+    app.add_handler(CommandHandler("redeem", redeem_key))
     app.add_handler(CommandHandler("makeadmin", make_admin))
     app.add_handler(CommandHandler("removeadmin", remove_admin))
     app.add_handler(CommandHandler("ban", ban_user))
@@ -291,7 +373,7 @@ def main():
     
     app.add_handler(MessageHandler(filters.Document.ALL, chf_document))
 
-    print("Bot is up and running securely...")
+    print("Bot is up and running with Prime Key generation & validation logic...")
     app.run_polling()
 
 if __name__ == "__main__":
