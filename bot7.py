@@ -16,7 +16,7 @@ STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY")
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
 OWNER_USERNAME = "@ESCROW2929"
-ADMIN_IDS = []  apni Telegram Admin ID yahan add kar sakte hain (e.g., [123456789])
+ADMIN_IDS = []  # Apni Telegram Admin ID yahan add kar sakte hain (e.g., [123456789])
 
 # /start command handler
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -31,8 +31,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # /admin or Admin Panel command
 async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    # Agar admin list me ho ya owner ho toh panel open hoga
     panel_message = (
         f"🛠 **Admin Panel**\n\n"
         f"• Status: Active & Running\n"
@@ -112,7 +110,7 @@ def main():
     # Bot builder initialization
     app = ApplicationBuilder().token(TOKEN).build()
 
-    # Handlers (Purani aur Nayi dono commands yahan register hain)
+    # Handlers
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("admin", admin_panel))
     app.add_handler(CommandHandler("keys", check_keys))
@@ -125,4 +123,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
+        
