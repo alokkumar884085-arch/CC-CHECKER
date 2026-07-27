@@ -448,4 +448,57 @@ async def process_card_string(card_line, user_full_name):
         return f"❌ {card_line} ➔ API Timeout (Server took too long to respond)"
     except Exception as e:
         logger.error(f"Processing error: {str(e)}")
-        return f"❌ {card_line} ➔ API Error / Connection F
+        return f"❌ {card_line} ➔ API Error / Connection Failed"
+
+async def chk_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id in BANNED_USERS:
+        return
+    ALL_USERS.add(user_id)
+    save_data()
+    if not has_access(user_id):
+        await update.message.reply_text("❌ Subscription expired or no key redeemed. Use /redeem <key>.")
+        return
+    if not context.args:
+        await update.message.reply_text("❌ Usage: /chk CC|MM|YY|CVV")
+        return
+    card_line = "".join(context.args)
+    user_full_name = update.effective_user.first_name
+    
+    msg = await update.message.reply_text("⏳ Processing card...")
+    result = await process_card_string(card_line, user_full_name)
+    await context.bot.edit_message_text(
+        chat_id=update.effective_chat.id,
+        message_id=msg.message_id,
+        text=result
+    )
+
+def main():
+    if not TOKEN:
+        logger.error("TELEGRAM_BOT_TOKEN environment variable is missing!")
+        return
+
+    # Start dummy HTTP server in background thread for Render
+    server_thread = threading.Thread(target=run_server)
+    server_thread.daemon = True
+    server_thread.start()
+
+    application = ApplicationBuilder().token(TOKEN).build()
+
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("admin", admin_pannel))
+    application.add_handler(CommandHandler("users", show_users_command))
+    application.add_handler(CommandHandler("announcement", announcement_command))
+    application.add_handler(CommandHandler("key", generate_key))
+    application.add_handler(CommandHandler("redeem", redeem_key))
+    application.add_handler(CommandHandler("makeadmin", make_admin))
+    application.add_handler(CommandHandler("removeadmin", remove_admin))
+    application.add_handler(CommandHandler("ban", ban_user))
+    application.add_handler(CommandHandler("unban", unban_user))
+    application.add_handler(CommandHandler("chk", chk_card))
+
+    logger.info("Bot is starting polling...")
+    application.run_polling()
+
+if __name__ == "__main__":
+    main()
