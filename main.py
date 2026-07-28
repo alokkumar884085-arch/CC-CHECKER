@@ -262,6 +262,41 @@ async def generate_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     save_data()
     await update.message.reply_text(f"🔑 {qty} Keys Generated:\n" + "\n".join([f"`{x}`" for x in keys]), parse_mode="Markdown")
 
+async def list_active_keys(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await check_bot_status(update, context):
+        return
+    user_id = update.effective_user.id
+    if not is_any_admin(user_id):
+        return
+    
+    if not ACTIVE_KEYS:
+        await update.message.reply_text("📂 No keys generated yet.")
+        return
+    
+    current_time = time.time()
+    response_msg = "🔑 **Active & Generated Keys List:**\n\n"
+    
+    for key, data in ACTIVE_KEYS.items():
+        used_by = data.get("used_by")
+        expiry_time = data.get("expiry_time")
+        
+        if used_by is None:
+            status = "🟢 Unused"
+        elif expiry_time and current_time < expiry_time:
+            time_left = int(expiry_time - current_time)
+            hours = time_left // 3600
+            mins = (time_left % 3600) // 60
+            status = f"⏳ Active (Left: {hours}h {mins}m)"
+        else:
+            status = "🔴 Expired"
+            
+        response_msg += f"`{key}` ➔ {status}\n"
+    
+    if len(response_msg) > 4000:
+        response_msg = response_msg[:4000] + "\n\n[Truncated]"
+        
+    await update.message.reply_text(response_msg, parse_mode="Markdown")
+
 async def key_reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await check_bot_status(update, context):
         return
@@ -321,7 +356,6 @@ async def get_bin_info(bin_code):
         pass
     return "UNKNOWN - UNKNOWN", "UNKNOWN", "UNKNOWN"
 
-# SAFE PROCESS CARD WRAPPER TO PREVENT ANY CRASH
 async def process_card_string(card_line, user_full_name):
     try:
         parts = card_line.split('|')
@@ -456,6 +490,7 @@ def main():
     app.add_handler(CommandHandler("startall", start_all_bot))
     app.add_handler(CommandHandler("admin", admin_pannel))
     app.add_handler(CommandHandler("key", generate_key))
+    app.add_handler(CommandHandler("listkeys", list_active_keys))  # Naya Feature Added
     app.add_handler(CommandHandler("keyreset", key_reset_command))
     app.add_handler(CommandHandler("redeem", redeem_key))
     app.add_handler(CommandHandler("chk", chk_card))
