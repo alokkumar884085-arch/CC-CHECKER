@@ -33,7 +33,7 @@ def run_server():
 
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OWNER_USERNAME = "@ESCROW2929"
-AUTHORIZED_ADMINS = {8785590284}
+AUTHORIZED_ADMINS = {8785590284} # Main Owner ID
 DATA_FILE = "users_data.json"
 
 BOT_IS_STOPPED = False
@@ -199,6 +199,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     user_id = update.effective_user.id
     if user_id in BANNED_USERS:
+        await update.message.reply_text("⛔ You are banned from using this bot.")
         return
     ALL_USERS.add(user_id)
     save_data()
@@ -212,7 +213,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def stop_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    if not is_main_admin(user_id):
+    if not is_any_admin(user_id):
         return
     global BOT_IS_STOPPED
     BOT_IS_STOPPED = True
@@ -220,7 +221,7 @@ async def stop_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def start_all_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    if not is_main_admin(user_id):
+    if not is_any_admin(user_id):
         return
     global BOT_IS_STOPPED
     BOT_IS_STOPPED = False
@@ -233,12 +234,89 @@ async def admin_pannel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_any_admin(user_id):
         return
     panel_message = (
-        f"🛠 Admin Panel & Controls\n\n"
+        f"🛠 **Admin Panel & Controls**\n\n"
         f"• Bot Status: {'🔴 Stopped' if BOT_IS_STOPPED else '🟢 Running'}\n"
         f"• Total Users: {len(ALL_USERS)}\n"
-        f"• Active Keys: {len(ACTIVE_KEYS)}\n"
+        f"• Banned Users: {len(BANNED_USERS)}\n"
+        f"• Sub Admins: {len(SUB_ADMINS)}\n"
+        f"• Active Keys: {len(ACTIVE_KEYS)}\n\n"
+        f"⚙️ **Admin Commands:**\n"
+        f"• `/key <qty> <time>` - Generate Keys\n"
+        f"• `/listkeys` - View Active Keys & Time Left\n"
+        f"• `/makeadmin <user_id>` - Make Sub-Admin (Owner Only)\n"
+        f"• `/removeadmin <user_id>` - Remove Sub-Admin (Owner Only)\n"
+        f"• `/ban <user_id>` - Ban User\n"
+        f"• `/unban <user_id>` - Unban User\n"
+        f"• `/keyreset` - Reset All Keys & Subs\n"
+        f"• `/stop` & `/startall` - Control Bot Status"
     )
-    await update.message.reply_text(panel_message)
+    await update.message.reply_text(panel_message, parse_mode="Markdown")
+
+async def make_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_main_admin(update.effective_user.id):
+        await update.message.reply_text("❌ Only Main Owner can make admins!")
+        return
+    if not context.args:
+        await update.message.reply_text("❌ Usage: /makeadmin <user_id>")
+        return
+    try:
+        new_admin_id = int(context.args[0])
+        SUB_ADMINS.add(new_admin_id)
+        save_data()
+        await update.message.reply_text(f"✅ User `{new_admin_id}` is now a Sub-Admin!", parse_mode="Markdown")
+    except ValueError:
+        await update.message.reply_text("❌ Invalid User ID format.")
+
+async def remove_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_main_admin(update.effective_user.id):
+        await update.message.reply_text("❌ Only Main Owner can remove admins!")
+        return
+    if not context.args:
+        await update.message.reply_text("❌ Usage: /removeadmin <user_id>")
+        return
+    try:
+        rem_admin_id = int(context.args[0])
+        if rem_admin_id in SUB_ADMINS:
+            SUB_ADMINS.remove(rem_admin_id)
+            save_data()
+            await update.message.reply_text(f"✅ User `{rem_admin_id}` removed from Sub-Admins.", parse_mode="Markdown")
+        else:
+            await update.message.reply_text("❌ This user is not in Sub-Admins list.")
+    except ValueError:
+        await update.message.reply_text("❌ Invalid User ID format.")
+
+async def ban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_any_admin(update.effective_user.id):
+        return
+    if not context.args:
+        await update.message.reply_text("❌ Usage: /ban <user_id>")
+        return
+    try:
+        b_id = int(context.args[0])
+        BANNED_USERS.add(b_id)
+        if b_id in USER_SUBSCRIPTIONS:
+            del USER_SUBSCRIPTIONS[b_id]
+        save_data()
+        await update.message.reply_text(f"🔨 User `{b_id}` has been banned from the bot.", parse_mode="Markdown")
+    except ValueError:
+        await update.message.reply_text("❌ Invalid User ID.")
+
+async def unban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_any_admin(update.effective_user.id):
+        return
+    if not context.args:
+        await update.message.reply_text("❌ Usage: /unban <user_id>")
+        return
+    try:
+        u_id = int(context.args[0])
+        if u_id in BANNED_USERS:
+            BANNED_USERS.remove(u_id)
+            save_data()
+            await update.message.reply_text(f"🔓 User `{u_id}` has been unbanned.", parse_mode="Markdown")
+        else:
+            await update.message.reply_text("❌ User is not in ban list.")
+    except ValueError:
+        await update.message.reply_text("❌ Invalid User ID.")
 
 async def generate_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await check_bot_status(update, context):
@@ -312,10 +390,10 @@ async def redeem_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     user = update.effective_user
     if user.id in BANNED_USERS:
+        await update.message.reply_text("⛔ You are banned.")
         return
     ALL_USERS.add(user.id)
     
-    # Check if user already has an active subscription
     if user.id in USER_SUBSCRIPTIONS:
         if time.time() < USER_SUBSCRIPTIONS[user.id]:
             time_left = int(USER_SUBSCRIPTIONS[user.id] - time.time())
@@ -324,7 +402,6 @@ async def redeem_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"❌ You already have an active subscription!\n⏳ Time Left: {hrs} hours {mins} minutes.")
             return
         else:
-            # Expired subscription cleanup
             del USER_SUBSCRIPTIONS[user.id]
             save_data()
 
@@ -334,12 +411,10 @@ async def redeem_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     k = context.args[0].strip().upper()
     
-    # Check if key exists and is NOT already used
     if k not in ACTIVE_KEYS or ACTIVE_KEYS[k]["used_by"] is not None:
         await update.message.reply_text("❌ Invalid or already used key!")
         return
         
-    # Mark key as used
     ACTIVE_KEYS[k]["used_by"] = user.id
     ACTIVE_KEYS[k]["expiry_time"] = time.time() + ACTIVE_KEYS[k]["duration_seconds"]
     USER_SUBSCRIPTIONS[user.id] = ACTIVE_KEYS[k]["expiry_time"]
@@ -512,6 +587,11 @@ def main():
     app.add_handler(CommandHandler("stop", stop_bot))
     app.add_handler(CommandHandler("startall", start_all_bot))
     app.add_handler(CommandHandler("admin", admin_pannel))
+    app.add_handler(CommandHandler("adminpannel", admin_pannel))
+    app.add_handler(CommandHandler("makeadmin", make_admin))
+    app.add_handler(CommandHandler("removeadmin", remove_admin))
+    app.add_handler(CommandHandler("ban", ban_user))
+    app.add_handler(CommandHandler("unban", unban_user))
     app.add_handler(CommandHandler("key", generate_key))
     app.add_handler(CommandHandler("listkeys", list_active_keys))
     app.add_handler(CommandHandler("keyreset", key_reset_command))
