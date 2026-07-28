@@ -314,13 +314,32 @@ async def redeem_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user.id in BANNED_USERS:
         return
     ALL_USERS.add(user.id)
-    save_data()
+    
+    # Check if user already has an active subscription
+    if user.id in USER_SUBSCRIPTIONS:
+        if time.time() < USER_SUBSCRIPTIONS[user.id]:
+            time_left = int(USER_SUBSCRIPTIONS[user.id] - time.time())
+            hrs = time_left // 3600
+            mins = (time_left % 3600) // 60
+            await update.message.reply_text(f"❌ You already have an active subscription!\n⏳ Time Left: {hrs} hours {mins} minutes.")
+            return
+        else:
+            # Expired subscription cleanup
+            del USER_SUBSCRIPTIONS[user.id]
+            save_data()
+
     if not context.args:
+        await update.message.reply_text("❌ Usage: /redeem <key>")
         return
+        
     k = context.args[0].strip().upper()
+    
+    # Check if key exists and is NOT already used
     if k not in ACTIVE_KEYS or ACTIVE_KEYS[k]["used_by"] is not None:
-        await update.message.reply_text("❌ Invalid or used key.")
+        await update.message.reply_text("❌ Invalid or already used key!")
         return
+        
+    # Mark key as used
     ACTIVE_KEYS[k]["used_by"] = user.id
     ACTIVE_KEYS[k]["expiry_time"] = time.time() + ACTIVE_KEYS[k]["duration_seconds"]
     USER_SUBSCRIPTIONS[user.id] = ACTIVE_KEYS[k]["expiry_time"]
@@ -331,7 +350,8 @@ async def redeem_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(chat_id=admin_id, text=f"🔑 Key Redeemed by {user.full_name} (`{user.id}`) using `{k}`")
         except Exception:
             pass
-    await update.message.reply_text("✅ Key Successfully Redeemed!")
+            
+    await update.message.reply_text("✅ Key Successfully Redeemed! Your subscription is now active.")
 
 def has_access(user_id):
     if is_any_admin(user_id):
@@ -420,6 +440,7 @@ async def chk_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     user_id = update.effective_user.id
     if user_id in BANNED_USERS or not has_access(user_id):
+        await update.message.reply_text("⛔ **Access Denied!** You need an active subscription. Use `/redeem <key>`.")
         return
     if not context.args:
         await update.message.reply_text("❌ Usage: /chk CC|MM|YY|CVV")
@@ -433,6 +454,7 @@ async def chks_cards(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     user_id = update.effective_user.id
     if user_id in BANNED_USERS or not has_access(user_id):
+        await update.message.reply_text("⛔ **Access Denied!** You need an active subscription. Use `/redeem <key>`.")
         return
     
     cards_text = update.message.text.replace("/chks", "").strip()
@@ -460,6 +482,7 @@ async def chf_file_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     user_id = update.effective_user.id
     if user_id in BANNED_USERS or not has_access(user_id):
+        await update.message.reply_text("⛔ **Access Denied!** You need an active subscription. Use `/redeem <key>`.")
         return
     document = update.message.document
     if not document:
@@ -490,7 +513,7 @@ def main():
     app.add_handler(CommandHandler("startall", start_all_bot))
     app.add_handler(CommandHandler("admin", admin_pannel))
     app.add_handler(CommandHandler("key", generate_key))
-    app.add_handler(CommandHandler("listkeys", list_active_keys))  # Naya Feature Added
+    app.add_handler(CommandHandler("listkeys", list_active_keys))
     app.add_handler(CommandHandler("keyreset", key_reset_command))
     app.add_handler(CommandHandler("redeem", redeem_key))
     app.add_handler(CommandHandler("chk", chk_card))
