@@ -43,7 +43,6 @@ def keep_alive_ping():
                 logger.info("Self-ping sent to keep bot alive!")
         except Exception as e:
             logger.error(f"Self-ping failed: {e}")
-        # Har 4 minute baad ping karega
         time.sleep(240)
 
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -203,11 +202,45 @@ async def generate_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     save_data()
     await update.message.reply_text("🔑 Generated:\n" + "\n".join([f"`{x}`" for x in keys]), parse_mode="Markdown")
 
+# 🕒 Helper to format remaining seconds into readable time (Days/Hours/Minutes)
+def format_remaining_time(expiry_timestamp):
+    if not expiry_timestamp:
+        return "Unused"
+    diff = int(expiry_timestamp - time.time())
+    if diff <= 0:
+        return "Expired"
+    
+    days = diff // 86400
+    hours = (diff % 86400) // 3600
+    minutes = (diff % 3600) // 60
+    
+    parts = []
+    if days > 0:
+        parts.append(f"{days}d")
+    if hours > 0:
+        parts.append(f"{hours}h")
+    if minutes > 0 or not parts:
+        parts.append(f"{minutes}m")
+    return " ".join(parts) + " left"
+
 async def list_active_keys(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_any_admin(update.effective_user.id):
         return
-    msg = "\n".join([f"`{k}` - {'Used' if v['used_by'] else 'Unused'}" for k, v in ACTIVE_KEYS.items()]) or "No keys."
-    await update.message.reply_text(msg[:4000], parse_mode="Markdown")
+    
+    if not ACTIVE_KEYS:
+        await update.message.reply_text("No keys found.")
+        return
+
+    msg_lines = ["🔑 **Keys Status List:**\n"]
+    for k, v in ACTIVE_KEYS.items():
+        if v['used_by']:
+            rem_time = format_remaining_time(v.get('expiry_time'))
+            msg_lines.append(f"`{k}` ➔ Used by `{v['used_by']}` ({rem_time})")
+        else:
+            msg_lines.append(f"`{k}` ➔ Unused")
+            
+    final_msg = "\n".join(msg_lines)
+    await update.message.reply_text(final_msg[:4000], parse_mode="Markdown")
 
 async def key_reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_any_admin(update.effective_user.id):
@@ -442,7 +475,6 @@ def main():
     if not TOKEN:
         return
     
-    # Background server and self-ping threads start kar rahe hain taaki bot sleep na ho
     threading.Thread(target=run_server, daemon=True).start()
     threading.Thread(target=keep_alive_ping, daemon=True).start()
     
@@ -466,7 +498,6 @@ def main():
     app.add_handler(CommandHandler("chf", chf_file_check))
     app.add_handler(MessageHandler(filters.Document.ALL, chf_file_check))
     
-    # Auto-restart loop agar polling kabhi disconnect ho jaye
     while True:
         try:
             logger.info("Starting bot polling...")
