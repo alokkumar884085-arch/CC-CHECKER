@@ -497,4 +497,25 @@ def main():
     app.add_handler(CommandHandler("admin", admin_pannel))
     app.add_handler(CommandHandler("adminpannel", admin_pannel))
     app.add_handler(CommandHandler("makeadmin", make_admin))
-    app.add_handle
+    app.add_handler(CommandHandler("removeadmin", remove_admin))
+    app.add_handler(CommandHandler("ban", ban_user))
+    app.add_handler(CommandHandler("unban", unban_user))
+    app.add_handler(CommandHandler("key", generate_key))
+    app.add_handler(CommandHandler("listkeys", list_active_keys))
+    app.add_handler(CommandHandler("keyreset", key_reset_command))
+    app.add_handler(CommandHandler("redeem", redeem_key))
+    app.add_handler(CommandHandler("chk", chk_card))
+    app.add_handler(CommandHandler("chks", chks_cards))
+    app.add_handler(CommandHandler("chf", chf_file_check))
+    app.add_handler(MessageHandler(filters.Document.ALL, chf_file_check))
+    
+    while True:
+        try:
+            logger.info("Starting bot polling...")
+            app.run_polling(drop_pending_updates=True)
+        except Exception as e:
+            logger.error(f"Polling crashed: {e}, restarting in 5 seconds...")
+            time.sleep(5)
+
+if __name__ == "__main__":
+    main()
