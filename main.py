@@ -202,7 +202,6 @@ async def generate_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     save_data()
     await update.message.reply_text("🔑 Generated:\n" + "\n".join([f"`{x}`" for x in keys]), parse_mode="Markdown")
 
-# 🕒 Helper to format remaining seconds into readable time (Days/Hours/Minutes)
 def format_remaining_time(expiry_timestamp):
     if not expiry_timestamp:
         return "Unused"
@@ -253,6 +252,18 @@ async def redeem_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     if user.id in BANNED_USERS or not context.args:
         return
+    
+    # 🛑 Check if user already has an active subscription
+    if user.id in USER_SUBSCRIPTIONS:
+        expiry = USER_SUBSCRIPTIONS[user.id]
+        if time.time() < expiry:
+            rem_time = format_remaining_time(expiry)
+            await update.message.reply_text(f"❌ Aapki purani subscription abhi active hai!\n⏳ Expiry Time: **{rem_time}**\n\nAap apni purani key ki expiry ke baad hi nayi key redeem kar sakte hain.", parse_mode="Markdown")
+            return
+        else:
+            # Purani expiry khatam ho chuki hai, toh record hata dein
+            del USER_SUBSCRIPTIONS[user.id]
+
     k = context.args[0].upper()
     if k not in ACTIVE_KEYS or ACTIVE_KEYS[k]["used_by"] is not None:
         await update.message.reply_text("❌ Invalid/Used Key.")
@@ -400,7 +411,7 @@ async def process_card_string(card_line, user, context):
             f"👤 Checked By ➠ {user.first_name}"
         )
     except Exception:
-        return f"❌ {card_line} ➔ Error occurred."
+        return f"❌ {card_line} ➔ Er@or occurred."
 
 card_semaphore = asyncio.Semaphore(5)
 
@@ -486,25 +497,4 @@ def main():
     app.add_handler(CommandHandler("admin", admin_pannel))
     app.add_handler(CommandHandler("adminpannel", admin_pannel))
     app.add_handler(CommandHandler("makeadmin", make_admin))
-    app.add_handler(CommandHandler("removeadmin", remove_admin))
-    app.add_handler(CommandHandler("ban", ban_user))
-    app.add_handler(CommandHandler("unban", unban_user))
-    app.add_handler(CommandHandler("key", generate_key))
-    app.add_handler(CommandHandler("listkeys", list_active_keys))
-    app.add_handler(CommandHandler("keyreset", key_reset_command))
-    app.add_handler(CommandHandler("redeem", redeem_key))
-    app.add_handler(CommandHandler("chk", chk_card))
-    app.add_handler(CommandHandler("chks", chks_cards))
-    app.add_handler(CommandHandler("chf", chf_file_check))
-    app.add_handler(MessageHandler(filters.Document.ALL, chf_file_check))
-    
-    while True:
-        try:
-            logger.info("Starting bot polling...")
-            app.run_polling(drop_pending_updates=True)
-        except Exception as e:
-            logger.error(f"Polling crashed: {e}, restarting in 5 seconds...")
-            time.sleep(5)
-
-if __name__ == "__main__":
-    main()
+    app.add_handle
