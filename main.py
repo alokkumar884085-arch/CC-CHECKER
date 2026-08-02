@@ -502,4 +502,99 @@ async def chk_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     if not context.args:
         return
-    msg = await update.m
+    msg = await update.message.reply_text("⏳ Checking across 7 APIs & selecting best response...")
+    result = await process_card_string(" ".join(context.args), update.effective_user, context)
+    await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=msg.message_id, text=result)
+
+async def chks_cards(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await check_bot_status(update, context):
+        return
+    user_id = update.effective_user.id
+    if user_id in BANNED_USERS or not has_access(user_id):
+        await update.message.reply_text("⛔ Access Denied! Use `/redeem <key>`.")
+        return
+    
+    cards_text = update.message.text.replace("/chks", "").strip()
+    if not cards_text:
+        return
+    card_lines = [l.strip() for l in cards_text.split("\n") if l.strip() and "|" in l][:10]
+    if not card_lines:
+        return
+
+    status_msg = await update.message.reply_text(f"⏳ Processing {len(card_lines)} cards via 7 APIs...")
+    tasks = [safe_process_card(line, update.effective_user, context) for line in card_lines]
+    results = await asyncio.gather(*tasks)
+    
+    final_output = "\n\n".join(results)[:4000]
+    try:
+        await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=status_msg.message_id, text=final_output)
+    except Exception:
+        await update.message.reply_text(final_output)
+
+async def chf_file_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await check_bot_status(update, context):
+        return
+    user_id = update.effective_user.id
+    if user_id in BANNED_USERS or not has_access(user_id):
+        await update.message.reply_text("⛔ Access Denied! Use `/redeem`.")
+        return
+    document = update.message.document
+    if not document:
+        return
+    
+    status_msg = await update.message.reply_text("⏳ Processing file through 7 APIs...")
+    try:
+        file = await context.bot.get_file(document.file_id)
+        file_bytes = await file.download_as_bytearray()
+        card_lines = [l.strip() for l in file_bytes.decode("utf-8", errors="ignore").split("\n") if l.strip() and "|" in l][:10]
+        
+        tasks = [safe_process_card(line, update.effective_user, context) for line in card_lines]
+        results = await asyncio.gather(*tasks)
+        
+        final_output = "\n\n".join(results)[:4000]
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=final_output)
+    except Exception:
+        pass
+
+def main():
+    if not TOKEN:
+        return
+    
+    threading.Thread(target=run_server, daemon=True).start()
+    threading.Thread(target=keep_alive_ping, daemon=True).start()
+    
+    app = ApplicationBuilder().token(TOKEN).concurrent_updates(True).build()
+    
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("stop", stop_bot))
+    app.add_handler(CommandHandler("startall", stop_bot))
+    app.add_handler(CommandHandler("admin", admin_pannel))
+    app.add_handler(CommandHandler("adminpannel", admin_pannel))
+    app.add_handler(CommandHandler("makeadmin", make_admin))
+    app.add_handler(CommandHandler("removeadmin", remove_admin))
+    app.add_handler(CommandHandler("ban", ban_user))
+    app.add_handler(CommandHandler("unban", unban_user))
+    app.add_handler(CommandHandler("key", generate_key))
+    app.add_handler(CommandHandler("listkeys", list_active_keys))
+    app.add_handler(CommandHandler("keyreset", key_reset_command))
+    app.add_handler(CommandHandler("redeem", redeem_key))
+    app.add_handler(CommandHandler("chk", chk_card))
+    app.add_handler(CommandHandler("chks", chks_cards))
+    app.add_handler(CommandHandler("chf", chf_file_check))
+    
+    # 🔗 NEW HANDLERS REGISTERED HERE
+    app.add_handler(CommandHandler("bin", bin_command))
+    app.add_handler(CommandHandler("gen", gen_command))
+    
+    app.add_handler(MessageHandler(filters.Document.ALL, chf_file_check))
+    
+    while True:
+        try:
+            logger.info("Starting bot polling...")
+            app.run_polling(drop_pending_updates=True)
+        except Exception as e:
+            logger.error(f"Polling crashed: {e}, restarting in 5 seconds...")
+            time.sleep(5)
+
+if __name__ == "__main__":
+    main()
