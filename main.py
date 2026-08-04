@@ -587,7 +587,7 @@ def main():
     
     app = ApplicationBuilder().token(TOKEN).concurrent_updates(True).build()
     
-    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("startall", start_bot))
     app.add_handler(CommandHandler("stop", stop_bot))
     app.add_handler(CommandHandler("startall", stop_bot))
     app.add_handler(CommandHandler("admin", admin_pannel))
