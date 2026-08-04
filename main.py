@@ -589,7 +589,7 @@ def main():
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("stop", stop_bot))
-    app.add_handler(CommandHandler("startall", start_bot))
+    app.add_handler(CommandHandler("startall", stop_bot))
     app.add_handler(CommandHandler("admin", admin_pannel))
     app.add_handler(CommandHandler("adminpannel", admin_pannel))
     app.add_handler(CommandHandler("makeadmin", make_admin))
